@@ -3,31 +3,10 @@ import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
 import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { 
-  Settings, 
-  CheckSquare, 
-  Square,
-  Skull,
-  Flower,
-  Zap,
-  Anchor,
-  Scissors,
-  Wifi,
-  Clock,
-  ArrowRight,
-  AlertTriangle,
-  Trash2,
-  RefreshCcw,
-  LogOut,
-  User,
-  Lock,
-  MessageCircle,
-  ShieldCheck,
-  AlarmClock,
-  Instagram,
-  FileText
+  Settings, CheckSquare, Square, Skull, Flower, Zap, Anchor, Scissors, Wifi, Clock, ArrowRight, AlertTriangle, Trash2, RefreshCcw, LogOut, User, Lock, MessageCircle, ShieldCheck, AlarmClock, Instagram, FileText
 } from 'lucide-react';
 
-// --- CONFIGURAÇÃO DO FIREBASE ---
+// --- CONFIGURAÇÃO DO FIREBASE (GLOBAL) ---
 const getFirebaseConfig = () => {
   try {
     if (typeof __firebase_config !== 'undefined' && __firebase_config) {
@@ -50,55 +29,19 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'sumar-promo-default';
 
+// --- CONSTANTES E ESTILOS (COMPARTILHADOS) ---
 const getLeadsCollection = () => collection(db, 'artifacts', appId, 'public', 'data', 'leads');
 
-// --- UTILITÁRIOS PARA IOS (SAFE STORAGE) ---
 const safeStorage = {
-  getItem: (key) => {
-    try {
-      return localStorage.getItem(key);
-    } catch (e) {
-      return null;
-    }
-  },
-  setItem: (key, value) => {
-    try {
-      localStorage.setItem(key, value);
-    } catch (e) {
-      // Ignora erro de cota ou segurança do Safari
-    }
-  },
-  removeItem: (key) => {
-    try {
-      localStorage.removeItem(key);
-    } catch (e) {
-      // Ignora erro
-    }
-  }
+  getItem: (key) => { try { return localStorage.getItem(key); } catch (e) { return null; } },
+  setItem: (key, value) => { try { localStorage.setItem(key, value); } catch (e) {} },
+  removeItem: (key) => { try { localStorage.removeItem(key); } catch (e) {} }
 };
 
 const safeSession = {
-  getItem: (key) => {
-    try {
-      return sessionStorage.getItem(key);
-    } catch (e) {
-      return null;
-    }
-  },
-  setItem: (key, value) => {
-    try {
-      sessionStorage.setItem(key, value);
-    } catch (e) {
-      // Ignora erro
-    }
-  },
-  removeItem: (key) => {
-    try {
-      sessionStorage.removeItem(key);
-    } catch (e) {
-      // Ignora erro
-    }
-  }
+  getItem: (key) => { try { return sessionStorage.getItem(key); } catch (e) { return null; } },
+  setItem: (key, value) => { try { sessionStorage.setItem(key, value); } catch (e) {} },
+  removeItem: (key) => { try { sessionStorage.removeItem(key); } catch (e) {} }
 };
 
 const CATALOG_IMAGES = [
@@ -142,132 +85,37 @@ const STENCILS = [
 ];
 
 const styles = {
-  container: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#050505',
-    color: '#f0f0f0',
-    fontFamily: '"Inter", sans-serif',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '0', 
-    overflow: 'hidden'
-  },
-  stencil: {
-    position: 'absolute',
-    color: 'rgba(255, 255, 255, 0.03)',
-    pointerEvents: 'none',
-    animation: 'drift 20s infinite linear'
-  },
-  box: {
-    width: '100%',
-    maxWidth: '420px', 
-    height: '100%', 
-    maxHeight: '100dvh', 
-    backgroundColor: 'rgba(18, 18, 18, 0.95)',
-    backdropFilter: 'blur(12px)',
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '30px 20px', 
-    boxSizing: 'border-box',
-    zIndex: 10,
-    position: 'relative',
-    overflow: 'hidden'
-  },
-  contentCenter: {
-    flex: 1, 
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center', 
-    alignItems: 'center',
-    width: '100%',
-    overflowY: 'hidden'
-  },
-  scrollArea: {
-    flex: 1, 
-    overflowY: 'auto', 
-    minHeight: 0, 
-    width: '100%',
-    paddingRight: '5px',
-    marginBottom: '10px'
-  },
-  btn: {
-    width: '100%',
-    height: '48px', 
-    backgroundColor: '#ff003c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontWeight: '700',
-    fontSize: '14px',
-    textTransform: 'uppercase',
-    letterSpacing: '1px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-    marginTop: '0', 
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 15px rgba(255, 0, 60, 0.3)',
-    flexShrink: 0 
-  },
-  input: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '12px',
-    padding: '14px',
-    color: 'white',
-    marginBottom: '10px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    fontSize: '16px', 
-    transition: 'border-color 0.3s'
-  },
-  timer: {
-    position: 'absolute',
-    top: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    backgroundColor: 'rgba(255, 0, 60, 0.9)',
-    color: 'white',
-    padding: '4px 12px',
-    borderRadius: '50px',
-    fontWeight: '800',
-    fontSize: '11px',
-    zIndex: 100,
-    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    textTransform: 'uppercase',
-    whiteSpace: 'nowrap'
-  },
-  adminToggle: {
-    position: 'absolute', 
-    bottom: 20,
-    right: 20, 
-    opacity: 0.5,  
-    background: 'rgba(255,255,255,0.05)', 
-    border: '1px solid rgba(255,255,255,0.1)', 
-    color: 'white', 
-    cursor: 'pointer',
-    zIndex: 200, 
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }
+  container: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#050505', color: '#f0f0f0', fontFamily: '"Inter", sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', overflow: 'hidden' },
+  stencil: { position: 'absolute', color: 'rgba(255, 255, 255, 0.03)', pointerEvents: 'none', animation: 'drift 20s infinite linear' },
+  box: { width: '100%', maxWidth: '420px', height: '100%', maxHeight: '100dvh', backgroundColor: 'rgba(18, 18, 18, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', padding: '30px 20px', boxSizing: 'border-box', zIndex: 10, position: 'relative', overflow: 'hidden' },
+  contentCenter: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: '100%', overflowY: 'hidden' },
+  scrollArea: { flex: 1, overflowY: 'auto', minHeight: 0, width: '100%', paddingRight: '5px', marginBottom: '10px' },
+  btn: { width: '100%', height: '48px', backgroundColor: '#ff003c', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '0', transition: 'all 0.3s ease', boxShadow: '0 4px 15px rgba(255, 0, 60, 0.3)', flexShrink: 0 },
+  input: { width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '14px', color: 'white', marginBottom: '10px', outline: 'none', boxSizing: 'border-box', fontSize: '16px', transition: 'border-color 0.3s' },
+  timer: { position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255, 0, 60, 0.9)', color: 'white', padding: '4px 12px', borderRadius: '50px', fontWeight: '800', fontSize: '11px', zIndex: 100, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', whiteSpace: 'nowrap' },
+  adminToggle: { position: 'absolute', bottom: 20, right: 20, opacity: 0.5, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', zIndex: 200, width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 };
 
-export default function App() {
+const BackgroundDrift = () => (
+  <div style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0 }}>
+    <style>{`
+      body { margin: 0; padding: 0; overflow: hidden; background-color: #050505; }
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+      ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+      @keyframes drift { 0% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(5deg); } 100% { transform: translateY(0) rotate(0deg); } }
+    `}</style>
+    {STENCILS.map((item, idx) => (
+      <item.Icon key={idx} size={item.size} style={{ ...styles.stencil, top: item.top, left: item.left, animationDelay: item.delay }} />
+    ))}
+  </div>
+);
+
+// ####################################################################################
+// ########################### INICIO DO CÓDIGO ANDROID ###############################
+// ####################################################################################
+
+function AppAndroid() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('home'); 
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -285,15 +133,8 @@ export default function App() {
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
 
-  // --- CONTROLE DE BLOQUEIO E IMUNIDADE ---
-  const [isSafeDevice, setIsSafeDevice] = useState(() => {
-    return safeStorage.getItem('sumar_admin_immunity') === 'true';
-  });
-
-  const [isBlocked, setIsBlocked] = useState(() => {
-    return safeStorage.getItem('sumar_promo_blocked') === 'true';
-  });
-
+  const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
+  const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
@@ -304,9 +145,7 @@ export default function App() {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        } else { await signInAnonymously(auth); }
       } catch (err) { console.error("Auth error"); }
     };
     initAuth();
@@ -325,21 +164,14 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // BLOQUEIO UNIVERSAL - MONITORAMENTO
   useEffect(() => {
-    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) {
-      setView('expired');
-    }
-
+    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { setView('expired'); }
     if (timeLeft === 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       setView('expired');
     }
-
-    if (timeLeft >= 0 && timeLeft <= 600) {
-      safeStorage.setItem('sumar_timer', timeLeft.toString());
-    }
+    if (timeLeft >= 0 && timeLeft <= 600) { safeStorage.setItem('sumar_timer', timeLeft.toString()); }
   }, [timeLeft, view, isBlocked]);
 
   useEffect(() => {
@@ -349,20 +181,15 @@ export default function App() {
         safeStorage.setItem('sumar_startTime', Date.now().toString());
         safeSession.setItem('sumar_sessionActive', 'true');
       }
-
       timerRef.current = setInterval(() => {
         const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
         if (start > 0) {
            const elapsed = Math.floor((Date.now() - start) / 1000);
            const remaining = 600 - elapsed;
            setTimeLeft(remaining > 0 ? remaining : 0);
-        } else {
-           setTimeLeft(p => (p > 0 ? p - 1 : 0));
-        }
+        } else { setTimeLeft(p => (p > 0 ? p - 1 : 0)); }
       }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
+    } else { if (timerRef.current) clearInterval(timerRef.current); }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
@@ -374,18 +201,14 @@ export default function App() {
       p += Math.random() * 6; 
       if (p > 100) p = 100;
       setLoadingProgress(p);
-      
       if (p < 20) setStatusMsg("Escaneando canais de rede...");
       else if (p < 40) setStatusMsg("Validando SSL do Estúdio...");
       else if (p < 60) setStatusMsg("Otimizando gateway de acesso...");
       else if (p < 80) setStatusMsg("Sincronizando banco de vagas...");
       else setStatusMsg("Finalizando túnel seguro...");
-
       if (p >= 100) {
         clearInterval(interval);
-        
         const alreadyAccessed = safeStorage.getItem('sumar_already_accessed') === 'true';
-        
         if (alreadyAccessed || isBlocked) {
           safeStorage.setItem('sumar_promo_blocked', 'true');
           setIsBlocked(true);
@@ -402,73 +225,37 @@ export default function App() {
     const confirmedFree = leads.filter(l => l.prize === 'free').length;
     const confirmedDiscount = leads.filter(l => l.prize === 'discount').length;
     const currentParticipantNum = confirmedFree + confirmedDiscount + 1;
-    
     setParticipantNumber(currentParticipantNum);
-
-    if (confirmedFree < 10) {
-      setPrizeType('free');
-      setIsLuckyWin(currentParticipantNum > 10);
-    } else if (confirmedDiscount < 10) {
-      setPrizeType('discount');
-      setIsLuckyWin(currentParticipantNum > 20);
-    } else {
-      setPrizeType('none');
-      setIsLuckyWin(false);
-    }
+    if (confirmedFree < 10) { setPrizeType('free'); setIsLuckyWin(currentParticipantNum > 10); }
+    else if (confirmedDiscount < 10) { setPrizeType('discount'); setIsLuckyWin(currentParticipantNum > 20); }
+    else { setPrizeType('none'); setIsLuckyWin(false); }
     setView('result');
   };
 
   const handleFinalConfirm = async () => {
     if (!customerName) return alert("Por favor, informe seu nome!");
     if (!selectedFlash) return alert("Selecione uma arte!");
-
     const takenImages = leads.map(l => l.selected_flash);
     if (takenImages.includes(selectedFlash.name)) {
       alert("Desculpe! Esta arte acabou de ser selecionada por outro participante. Por favor, escolha outra.");
-      setView('catalog');
-      setSelectedFlash(null);
-      return;
+      setView('catalog'); setSelectedFlash(null); return;
     }
-    
     try {
       const leadsRef = getLeadsCollection();
-      await addDoc(leadsRef, {
-        name: customerName,
-        prize: prizeType,
-        selected_flash: selectedFlash.name,
-        participant_n: participantNumber,
-        created_at: serverTimestamp()
-      });
-      
+      await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
       const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}. Segue o link da imagem: ${selectedFlash.src}`;
-      
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
     } catch (e) { alert("Erro ao salvar."); }
   };
 
-  const unlockAdmin = () => {
-    if (adminPass === 'SumaR321') {
-      setIsAdminUnlocked(true);
-    } else {
-      alert("Acesso negado.");
-    }
-  };
+  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
 
   const grantAdminImmunity = () => {
-    safeStorage.removeItem('sumar_promo_blocked');
-    safeStorage.removeItem('sumar_timer');
-    safeStorage.removeItem('sumar_startTime');
-    safeStorage.removeItem('sumar_already_accessed');
-    safeSession.removeItem('sumar_sessionActive');
-    
-    safeStorage.setItem('sumar_admin_immunity', 'true');
-    setIsSafeDevice(true);
-    setIsBlocked(false);
-    setTimeLeft(600); 
-    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!");
-    setView('home');
+    safeStorage.removeItem('sumar_promo_blocked'); safeStorage.removeItem('sumar_timer'); safeStorage.removeItem('sumar_startTime'); safeStorage.removeItem('sumar_already_accessed'); safeSession.removeItem('sumar_sessionActive');
+    safeStorage.setItem('sumar_admin_immunity', 'true'); setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
+    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); setView('home');
   };
 
   const deleteSelectedLeads = async () => {
@@ -476,53 +263,14 @@ export default function App() {
     if (!window.confirm(`Apagar ${selectedLeadIds.length} contatos?`)) return;
     try {
       const batch = writeBatch(db);
-      selectedLeadIds.forEach(id => {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', id);
-        batch.delete(docRef);
-      });
-      await batch.commit();
-      setSelectedLeadIds([]);
+      selectedLeadIds.forEach(id => { const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', id); batch.delete(docRef); });
+      await batch.commit(); setSelectedLeadIds([]);
     } catch (e) { alert("Erro ao apagar."); }
   };
 
-  const handleWhatsAppLostOpportunity = () => {
-    const msg = "Meu acesso está bloqueado, mas ainda quero uma tattoo";
-    window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
-  };
+  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
+  const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
 
-  const handleInstagramVisit = () => {
-    window.open(`https://www.instagram.com/tattosumar/`, '_blank');
-  };
-
-  const BackgroundDrift = () => (
-    <div style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0 }}>
-      <style>{`
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #050505; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-        @keyframes drift {
-          0% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
-          100% { transform: translateY(0) rotate(0deg); }
-        }
-      `}</style>
-      {STENCILS.map((item, idx) => (
-        <item.Icon 
-          key={idx} 
-          size={item.size} 
-          style={{
-            ...styles.stencil, 
-            top: item.top, 
-            left: item.left, 
-            animationDelay: item.delay 
-          }} 
-        />
-      ))}
-    </div>
-  );
-
-  // VIEW: ADMIN
   if (view === 'admin') {
     return (
       <div style={styles.container}>
@@ -532,7 +280,6 @@ export default function App() {
             <h2 style={{color:'#ff003c', margin:0, fontSize: '16px', fontWeight: '800'}}>PAINEL OPERACIONAL</h2>
             <button onClick={() => setView('home')} style={{background:'none', border:'none', color:'#888', textDecoration:'underline', cursor:'pointer', fontSize:'11px'}}>SAIR</button>
           </div>
-          
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
               <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha mestra.</p>
@@ -541,7 +288,6 @@ export default function App() {
             </div>
           ) : (
             <div style={{display:'flex', flexDirection: 'column', height: '100%'}}>
-              {/* Stats */}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'15px', flexShrink: 0}}>
                 <div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}>
                   <div style={{fontSize:'10px', color:'#ffd700', marginBottom: '5px'}}>FREE</div>
@@ -552,28 +298,17 @@ export default function App() {
                   <div style={{fontSize:'20px', fontWeight:'900'}}>{leads.filter(l => l.prize === 'discount').length}/10</div>
                 </div>
               </div>
-
-              {/* List Scroll Area */}
               <div style={styles.scrollArea}>
                 {leads.map(l => (
                   <div key={l.id} onClick={() => setSelectedLeadIds(prev => prev.includes(l.id) ? prev.filter(i => i !== l.id) : [...prev, l.id])} style={{display:'flex', gap:'12px', padding:'12px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems: 'center', cursor: 'pointer', backgroundColor: selectedLeadIds.includes(l.id) ? 'rgba(255, 0, 60, 0.05)' : 'transparent', borderRadius: '8px'}}>
                     {selectedLeadIds.includes(l.id) ? <CheckSquare size={16} color="#ff003c" /> : <Square size={16} color="#555" />}
-                    <div style={{fontSize:'12px'}}>
-                      <div style={{fontWeight:'700'}}>{l.name}</div>
-                      <div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'} | {l.selected_flash}</div>
-                    </div>
+                    <div style={{fontSize:'12px'}}><div style={{fontWeight:'700'}}>{l.name}</div><div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'} | {l.selected_flash}</div></div>
                   </div>
                 ))}
               </div>
-
-              {/* Actions Footer */}
               <div style={{flexShrink: 0, marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #222'}}>
-                 <button onClick={deleteSelectedLeads} disabled={selectedLeadIds.length === 0} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', height: '40px', fontSize: '12px', opacity: selectedLeadIds.length > 0 ? 1 : 0.3, marginBottom: '10px'}}>
-                  <Trash2 size={14} /> APAGAR ({selectedLeadIds.length})
-                </button>
-                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}>
-                  <ShieldCheck size={18} style={{marginRight: '8px'}}/> ATIVAR IMUNIDADE ADM
-                </button>
+                 <button onClick={deleteSelectedLeads} disabled={selectedLeadIds.length === 0} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', height: '40px', fontSize: '12px', opacity: selectedLeadIds.length > 0 ? 1 : 0.3, marginBottom: '10px'}}><Trash2 size={14} /> APAGAR ({selectedLeadIds.length})</button>
+                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}><ShieldCheck size={18} style={{marginRight: '8px'}}/> ATIVAR IMUNIDADE ADM</button>
               </div>
             </div>
           )}
@@ -582,366 +317,338 @@ export default function App() {
     );
   }
 
-  // VIEW: EXPIRED / ACCESS DENIED
   if (view === 'expired') {
     return (
-      <div style={styles.container}>
-        <BackgroundDrift />
-        <div style={styles.box}>
-          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
-          <div style={styles.contentCenter}>
-            <AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} />
-            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1>
-            
-            <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>
-              Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.
-            </p>
-
-            <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>
-              Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-              <button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}>
-                <MessageCircle size={18} /> FALAR NO WHATSAPP
-              </button>
-              <button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}>
-                <Instagram size={18} /> CONHECER O INSTAGRAM
-              </button>
-            </div>
-
-            <p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>
-              Sumar Estúdio - Segurança de Dados Ativa
-            </p>
-          </div>
-        </div>
-      </div>
+      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
     );
   }
 
-  // VIEW: HOME / LOADING
   if (view === 'home' || view === 'loading') {
     return (
-      <div style={styles.container}>
-        <BackgroundDrift />
-        <div style={styles.box}>
-          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
           {view === 'home' ? (
-            <div style={{...styles.contentCenter, textAlign:'center'}}>
-              <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}>
-                 <Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} />
-              </div>
-              <h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1>
-              <div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div>
-              <p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p>
-              
-              <button 
-                onClick={startConnection} 
-                disabled={!termsAccepted}
-                style={{
-                  ...styles.btn, 
-                  opacity: termsAccepted ? 1 : 0.5,
-                  cursor: termsAccepted ? 'pointer' : 'not-allowed',
-                  marginBottom: '10px',
-                  marginTop: '20px' 
-                }}
-              >
-                INICIAR CONEXÃO <ArrowRight size={18}/>
-              </button>
-              
-              <button 
-                onClick={() => setShowRegulations(true)} 
-                style={{
-                  background: 'none', 
-                  border: 'none', 
-                  color: '#666', 
-                  fontSize: '11px', 
-                  textDecoration: 'underline', 
-                  cursor: 'pointer', 
-                  padding: '5px'
-                }}
-              >
-                 Ler regulamento completo
-              </button>
-
-               <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}>
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: 'pointer'}}
-                  id="termsCheck"
-                />
-                <label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: 'pointer', fontWeight: '500'}}>
-                  Li e concordo com os termos
-                </label>
-              </div>
-
-              {/* MODAL DE REGULAMENTO AJUSTADO - TAMANHO REDUZIDO E BORDAS LATERAIS MAIORES */}
+            <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p><button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5, cursor: termsAccepted ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button><button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button>
+               <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: 'pointer'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: 'pointer', fontWeight: '500'}}>Li e concordo com os termos</label></div>
               {showRegulations && (
-                <div style={{
-                  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-                  backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' // Padding externo aumentado
-                }}>
-                  <div style={{
-                    backgroundColor: '#121212', width: '90%', maxWidth: '380px', // Max-width reduzido para 380px
-                    maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333',
-                    display: 'flex', flexDirection: 'column', color: '#ddd'
-                  }}>
-                     <div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                        <h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3>
-                        <button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', lineHeight: 1}}>&times;</button>
-                     </div>
-                     <div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'left'}}>
-                        <p style={{marginBottom: '15px', fontWeight:'bold'}}>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"</p>
-                        
-                        <p style={{marginBottom: '15px'}}>Este documento estabelece as regras e condições para participação na campanha promocional realizada pelo SUMAR ESTÚDIO, doravante denominado "ESTÚDIO". Ao participar da ação digital, o usuário concorda integralmente com os termos abaixo.</p>
-                        
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>1. DO PERÍODO E VIGÊNCIA</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                          <li>1.1. A campanha terá início em 07/02/2026 e encerramento previsto para 07/03/2026.</li>
-                          <li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li>
-                        </ul>
-
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>2. DA MECÂNICA DA PARTICIPAÇÃO</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio.</li>
-                           <li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li>
-                           <li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma:
-                             <br/><br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).
-                             <br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.
-                           </li>
-                           <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
-                        </ul>
-
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>3.1. Tatuagem Grátis (1º ao 10º lugar):
-                             <br/>Isenção total do valor do procedimento da tatuagem.
-                             <br/>O custo de deslocamento até o estúdio é de inteira responsabilidade do ganhador.
-                           </li>
-                           <li>3.2. Desconto de 50% (11º ao 20º lugar):
-                             <br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.
-                             <br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).
-                             <br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.
-                           </li>
-                           <li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):
-                             <br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.
-                             <br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.
-                           </li>
-                        </ul>
-
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li>
-                           <li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li>
-                           <li>4.3. Restrições: - A promoção é válida apenas para pele limpa (tatuagem nova).
-                             <br/>Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.
-                             <br/>O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.
-                           </li>
-                           <li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão.
-                             <br/>Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).
-                           </li>
-                        </ul>
-
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li>
-                           <li>5.2. Prazos:
-                             <br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.
-                             <br/>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.
-                           </li>
-                           <li>5.3. Transferência de Titularidade:
-                             <br/>O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados).
-                             <br/>Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.
-                           </li>
-                        </ul>
-
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>6.1. O não comparecimento na data e hora agendadas, sem aviso prévio ou justificativa aceita pelo estúdio, resultará no cancelamento automático do prêmio.</li>
-                           <li>6.2. Em caso de cancelamento por não comparecimento, a vaga será reaberta no sistema para um novo participante, mantendo a regra de distribuição dos prêmios (10 grátis / 10 descontos).</li>
-                        </ul>
-                        
-                         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>7. DO DIREITO DE USO DE IMAGEM</h4>
-                         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>7.1. Ao participar desta campanha e realizar o procedimento, o(a) participante autoriza, de forma gratuita, irrevogável, irretratável e universal, o uso de sua imagem e voz, bem como das imagens da tatuagem realizada (antes, durante e depois do procedimento).</li>
-                           <li>7.2. O Sumar Estúdio fica autorizado a utilizar o material captado para fins de divulgação, publicidade, composição de portfólio e marketing em quaisquer meios de comunicação, incluindo, mas não se limitando a: redes sociais (Instagram, TikTok, Facebook, etc.), site oficial, materiais impressos e exposições.</li>
-                           <li>7.3. A presente autorização é concedida a título gratuito, não gerando ao participante qualquer direito a remuneração, indenização, royalties ou compensação financeira de qualquer natureza pelo uso de sua imagem associada ao trabalho artístico do Estúdio.</li>
-                        </ul>
-                        
-                         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4>
-                        <p style={{margin: '5px 0'}}>Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</p>
-
-                        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
-                        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-                           <li>9.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li>
-                           <li>9.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado no banco de dados do sistema terão direito ao prêmio.</li>
-                           <li>9.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
-                           <li>9.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
-                        </ul>
-
-                        <div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>
-                           Sumar Estúdio<br/>Recife/PE
-                        </div>
-                     </div>
-                  </div>
-                </div>
+                <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}><div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}><div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3><button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', lineHeight: 1}}>&times;</button></div><div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'left'}}><p style={{marginBottom: '15px', fontWeight:'bold'}}>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"</p><p style={{marginBottom: '15px'}}>Este documento estabelece as regras e condições para participação na campanha promocional realizada pelo SUMAR ESTÚDIO, doravante denominado "ESTÚDIO". Ao participar da ação digital, o usuário concorda integralmente com os termos abaixo.</p><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>1. DO PERÍODO E VIGÊNCIA</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>1.1. A campanha terá início em 07/02/2026 e encerramento previsto para 07/03/2026.</li><li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>2. DA MECÂNICA DA PARTICIPAÇÃO</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio.</li><li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li><li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma: <br/><br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li><li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.<br/>O custo de deslocamento até o estúdio é de inteira responsabilidade do ganhador.</li><li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li><li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li><li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li><li>4.3. Restrições: - A promoção é válida apenas para pele limpa (tatuagem nova).<br/>Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.<br/>O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.</li><li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão.<br/>Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li><li>5.2. Prazos:<br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br/>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li><li>5.3. Transferência de Titularidade:<br/>O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados).<br/>Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>6.1. O não comparecimento na data e hora agendadas, sem aviso prévio ou justificativa aceita pelo estúdio, resultará no cancelamento automático do prêmio.</li><li>6.2. Em caso de cancelamento por não comparecimento, a vaga será reaberta no sistema para um novo participante, mantendo a regra de distribuição dos prêmios (10 grátis / 10 descontos).</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>7. DO DIREITO DE USO DE IMAGEM</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>7.1. Ao participar desta campanha e realizar o procedimento, o(a) participante autoriza, de forma gratuita, irrevogável, irretratável e universal, o uso de sua imagem e voz, bem como das imagens da tatuagem realizada (antes, durante e depois do procedimento).</li><li>7.2. O Sumar Estúdio fica autorizado a utilizar o material captado para fins de divulgação, publicidade, composição de portfólio e marketing em quaisquer meios de comunicação, incluindo, mas não se limitando a: redes sociais (Instagram, TikTok, Facebook, etc.), site oficial, materiais impressos e exposições.</li><li>7.3. A presente autorização é concedida a título gratuito, não gerando ao participante qualquer direito a remuneração, indenização, royalties ou compensação financeira de qualquer natureza pelo uso de sua imagem associada ao trabalho artístico do Estúdio.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4><p style={{margin: '5px 0'}}>Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</p><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>9.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li><li>9.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado no banco de dados do sistema terão direito ao prêmio.</li><li>9.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li><li>9.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li></ul><div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>Sumar Estúdio<br/>Recife/PE</div></div></div></div>
               )}
-
             </div>
           ) : (
-            <div style={{...styles.contentCenter, textAlign:'center'}}>
-              <h2 style={{fontSize:'20px', fontWeight: '800', marginBottom:'20px', color: '#fff'}}>CONECTANDO...</h2>
-              <div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', marginBottom:'15px', overflow: 'hidden', margin: '0 auto 15px'}}>
-                <div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s', boxShadow: '0 0 15px #ff003c'}}></div>
-              </div>
-              <p style={{fontSize:'12px', color:'#666', fontStyle: 'italic'}}>{statusMsg}</p>
-            </div>
+            <div style={{...styles.contentCenter, textAlign:'center'}}><h2 style={{fontSize:'20px', fontWeight: '800', marginBottom:'20px', color: '#fff'}}>CONECTANDO...</h2><div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', marginBottom:'15px', overflow: 'hidden', margin: '0 auto 15px'}}><div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s', boxShadow: '0 0 15px #ff003c'}}></div></div><p style={{fontSize:'12px', color:'#666', fontStyle: 'italic'}}>{statusMsg}</p></div>
           )}
         </div>
       </div>
     );
   }
 
-  // MAIN FLOW (Views with Timer)
   return (
-    <div style={styles.container}>
-      <BackgroundDrift />
-      <div style={styles.box}>
-        <div style={styles.timer}><Clock size={12}/> {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</div>
-        
+    <div style={styles.container}><BackgroundDrift /><div style={styles.box}><div style={styles.timer}><Clock size={12}/> {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</div>
         {view === 'connection_failed' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}>
-            <div style={{ backgroundColor: 'rgba(255,  0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px'}}>
-              <AlertTriangle size={28} color="#ff003c" />
-            </div>
-            <h1 style={{fontSize:'24px', fontWeight: '900', margin:'0 0 10px 0', color: '#fff'}}>ERRO DE REDE</h1>
-            <div style={{fontSize:'13px', color:'#ccc', marginBottom:'15px', lineHeight: '1.4'}}>
-              Não conseguimos validar seu acesso Wi-Fi.<br />
-              <strong>Ainda bem 🙂</strong><br />
-             Se você for um dos 10 primeiros a validar, você ganha uma FLASH TATTOO.
-            </div>
-            <div style={{backgroundColor:'rgba(255, 255, 255, 0.03)', padding:'15px', borderRadius:'16px', border:'1px solid rgba(255,255,255,0.05)', marginBottom:'15px'}}>
-              <p style={{fontSize:'12px', color:'#fff', fontWeight: '800', marginBottom:'5px'}}>Tá desconfiado?</p>
-              <p style={{fontSize:'12px', color:'#888', marginBottom:'10px'}}>Confere nosso Insta, mas volta rápido, o tempo não para.</p>
-              <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{color: '#ff003c', fontWeight:'800', textDecoration:'none', fontSize:'14px', borderBottom: '2px solid #ff003c'}}>@TATTOSUMAR</a>
-            </div>
-            <button onClick={determinePrize} style={styles.btn}>DESCOBRIR MINHA COLOCAÇÃO</button>
-          </div>
+          <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ backgroundColor: 'rgba(255,  0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px'}}><AlertTriangle size={28} color="#ff003c" /></div><h1 style={{fontSize:'24px', fontWeight: '900', margin:'0 0 10px 0', color: '#fff'}}>ERRO DE REDE</h1><div style={{fontSize:'13px', color:'#ccc', marginBottom:'15px', lineHeight: '1.4'}}>Não conseguimos validar seu acesso Wi-Fi.<br /><br /><strong>Ainda bem 🙂</strong><br /><br />Pois se você for um dos 10 primeiros a ter escaneado e validado a promoção, você ganhou uma FLASH TATTOO.</div><div style={{backgroundColor:'rgba(255, 255, 255, 0.03)', padding:'15px', borderRadius:'16px', border:'1px solid rgba(255,255,255,0.05)', marginBottom:'15px'}}><p style={{fontSize:'12px', color:'#fff', fontWeight: '800', marginBottom:'5px'}}>Tá desconfiado?</p><p style={{fontSize:'13px', color:'#888', marginBottom:'15px'}}>Então confere nosso Insta, volta e valida.<br />Mas vai rápido, o cronômetro ali em cima não dá segunda chance.</p><a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{color: '#ff003c', fontWeight:'800', textDecoration:'none', fontSize:'14px', borderBottom: '2px solid #ff003c'}}>@TATTOSUMAR</a></div><button onClick={determinePrize} style={styles.btn}>DESCOBRIR MINHA COLOCAÇÃO</button></div>
         )}
-
         {view === 'result' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}>
-            {prizeType === 'none' ? (
-              <div>
-                <h1 style={{fontSize: '50px'}}>😔</h1>
-                <p style={{fontSize: '14px', lineHeight: '1.6', marginBottom: '20px'}}>
-                  Sentimos muito, as vagas esgotaram. Mas nos chamando por aqui, você ainda pode ter uma negociação especial no estúdio.
-                </p>
-                <button 
-                  onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} 
-                  style={{...styles.btn, backgroundColor: '#25D366'}}
-                >
-                  FALE CONOSCO
-                </button>
-              </div>
-            ) : (
-              <div style={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                <div style={{marginBottom:'10px', fontSize:'12px', color:'#ff003c', fontWeight: '800', letterSpacing: '2px'}}>CUPOM LIBERADO</div>
-                <div style={{marginBottom:'15px', fontSize:'14px', color:'#fff', fontWeight: '500'}}>
-                   {isLuckyWin ? (
-                     `Você foi o ${participantNumber}º participante`
-                   ) : (
-                     `Você foi o ${participantNumber}º participante e ganhou:`
-                   )}
-                </div>
-                <div style={{backgroundColor:'#fff', color:'#000', padding:'20px', borderRadius: '16px', fontWeight:'900', fontSize:'18px', transform:'rotate(-1deg)', boxShadow:'10px 10px 0px #ff003c', marginBottom:'25px', lineHeight: '1.2', width: '90%'}}>
-                  {isLuckyWin ? (
-                    <>
-                      <div style={{fontSize: '14px', color: '#ff003c', marginBottom: '8px'}}>QUE SORTE ALGUÉM DESISTIU DE UMA DAS VAGAS E AGORA VOCÊ GANHOU:</div>
-                      {prizeType === 'free' ? 'UMA TATUAGEM GRÁTIS' : '50% DE DESCONTO'}
-                    </>
-                  ) : (
-                    prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO'
-                  )}
-                  <div style={{fontSize:'12px', marginTop:'8px', color:'#666', fontWeight: '600'}}>(Válido para as artes disponíveis a seguir)</div>
-                </div>
-                <button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button>
-              </div>
-            )}
-          </div>
+          <div style={{...styles.contentCenter, textAlign:'center'}}>{prizeType === 'none' ? (<div><h1 style={{fontSize: '50px'}}>😔</h1><p style={{fontSize: '14px', lineHeight: '1.6', marginBottom: '20px'}}>Sentimos muito, as vagas esgotaram. Mas nos chamando por aqui, você ainda pode ter uma negociação especial no estúdio.</p><button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{...styles.btn, backgroundColor: '#25D366'}}>FALE CONOSCO</button></div>) : (<div style={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center'}}><div style={{marginBottom:'10px', fontSize:'12px', color:'#ff003c', fontWeight: '800', letterSpacing: '2px'}}>CUPOM LIBERADO</div><div style={{marginBottom:'15px', fontSize:'14px', color:'#fff', fontWeight: '500'}}>{isLuckyWin ? (`Você foi o ${participantNumber}º participante`) : (`Você foi o ${participantNumber}º participante e ganhou:`)}</div><div style={{backgroundColor:'#fff', color:'#000', padding:'20px', borderRadius: '16px', fontWeight:'900', fontSize:'18px', transform:'rotate(-1deg)', boxShadow:'10px 10px 0px #ff003c', marginBottom:'25px', lineHeight: '1.2', width: '90%'}}>{isLuckyWin ? (<><div style={{fontSize: '14px', color: '#ff003c', marginBottom: '8px'}}>QUE SORTE ALGUÉM DESISTIU DE UMA DAS VAGAS E AGORA VOCÊ GANHOU:</div>{prizeType === 'free' ? 'UMA TATUAGEM GRÁTIS' : '50% DE DESCONTO'}</>) : (prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO')}<div style={{fontSize:'12px', marginTop:'8px', color:'#666', fontWeight: '600'}}>(Válido para uma das artes disponíveis a seguir)</div></div><button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button></div>)}</div>
         )}
-
         {view === 'catalog' && (
-          <div style={{display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box'}}>
-            <h2 style={{fontSize:'20px', fontWeight: '900', marginBottom:'15px', textAlign: 'center', color: '#fff', flexShrink: 0}}>ESCOLHA SUA ARTE</h2>
-            <div style={styles.scrollArea}>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-                {CATALOG_IMAGES.map(img => {
-                  const isTaken = leads.some(l => l.selected_flash === img.name);
-                  return (
-                    <div key={img.id} 
-                        onClick={() => !isTaken && setSelectedFlash(img)} 
-                        style={{
-                          borderRadius: '12px',
-                          border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), 
-                          padding:'6px', 
-                          background:'rgba(255,255,255,0.02)', 
-                          cursor: isTaken ? 'not-allowed' : 'pointer',
-                          transition: 'all 0.3s ease',
-                          position: 'relative',
-                          opacity: isTaken ? 0.3 : 1
-                        }}>
-                      <img src={img.src} alt={img.name} style={{
-                        width:'100%', 
-                        borderRadius: '8px', 
-                        filter: isTaken ? 'grayscale(100%)' : (selectedFlash?.id === img.id ? 'none' : 'grayscale(100%) opacity(0.5)')
-                      }} />
-                      {isTaken && (
-                        <div style={{
-                          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                          backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px',
-                          fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', zIndex: 2
-                        }}>
-                          <Lock size={10} /> ESGOTADO
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <button onClick={() => selectedFlash ? setView('form') : alert("Selecione uma arte!")} style={styles.btn}>PRÓXIMO PASSO</button>
-          </div>
+          <div style={{display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box'}}><h2 style={{fontSize:'20px', fontWeight: '900', marginBottom:'15px', textAlign: 'center', color: '#fff', flexShrink: 0}}>ESCOLHA SUA ARTE</h2><div style={styles.scrollArea}><div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>{CATALOG_IMAGES.map(img => { const isTaken = leads.some(l => l.selected_flash === img.name); return ( <div key={img.id} onClick={() => !isTaken && setSelectedFlash(img)} style={{ borderRadius: '12px', border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), padding:'6px', background:'rgba(255,255,255,0.02)', cursor: isTaken ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', position: 'relative', opacity: isTaken ? 0.3 : 1 }}><img src={img.src} alt={img.name} style={{ width:'100%', borderRadius: '8px', filter: isTaken ? 'grayscale(100%)' : (selectedFlash?.id === img.id ? 'none' : 'grayscale(100%) opacity(0.5)') }} />{isTaken && ( <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', zIndex: 2 }}><Lock size={10} /> ESGOTADO</div> )}</div> ); })}</div></div><button onClick={() => selectedFlash ? setView('form') : alert("Selecione uma arte!")} style={styles.btn}>PRÓXIMO PASSO</button></div>
         )}
-
         {view === 'form' && (
-          <div style={{...styles.contentCenter, textAlign: 'center'}}>
-            <h2 style={{fontSize:'22px', fontWeight: '900', marginBottom:'10px', color: '#fff'}}>RESERVA FINAL</h2>
-            <p style={{fontSize:'13px', color:'#888', marginBottom:'20px'}}>Informe seu nome para o agendamento:</p>
-            <input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
-            
-            <p style={{fontSize:'12px', color:'#ff003c', marginBottom:'20px', lineHeight: '1.4', fontWeight: '500'}}>
-              Ao confirmar você será direcionado ao WhatsApp do estúdio para validação do cupom.<br />
-              Envie a mensagem automática para confirmar a participação.
-            </p>
-
-            <button onClick={handleFinalConfirm} style={styles.btn}>VALIDAR PROMOÇÃO</button>
-          </div>
+          <div style={{...styles.contentCenter, textAlign: 'center'}}><h2 style={{fontSize:'22px', fontWeight: '900', marginBottom:'10px', color: '#fff'}}>RESERVA FINAL</h2><p style={{fontSize:'13px', color:'#888', marginBottom:'20px'}}>Informe seu nome para o agendamento:</p><input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} /><p style={{fontSize:'12px', color:'#ff003c', marginBottom:'20px', lineHeight: '1.4', fontWeight: '500'}}>Ao confirmar você será direcionado ao WhatsApp do estúdio para validação do cupom.<br />Envie a mensagem automática para confirmar a participação.</p><button onClick={handleFinalConfirm} style={styles.btn}>VALIDAR PROMOÇÃO</button></div>
         )}
-
         {view === 'success' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}>
-              <div style={{ backgroundColor: 'rgba(0, 255, 100, 0.1)', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px'}}>
-              <CheckSquare size={36} color="#00ff64" />
-            </div>
-            <h2 style={{fontSize:'24px', fontWeight: '900', color: '#00ff64'}}>RESERVADO COM SUCESSO!</h2>
-            <p style={{fontSize:'14px', color:'#aaa', margin:'20px 0'}}>Sua vaga foi bloqueada por 24h.</p>
-          </div>
+          <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ backgroundColor: 'rgba(0, 255, 100, 0.1)', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px'}}><CheckSquare size={36} color="#00ff64" /></div><h2 style={{fontSize:'24px', fontWeight: '900', color: '#00ff64'}}>RESERVADO COM SUCESSO!</h2><p style={{fontSize:'14px', color:'#aaa', margin:'20px 0'}}>Sua vaga foi bloqueada por 24h.</p></div>
         )}
       </div>
     </div>
   );
+}
+
+// ####################################################################################
+// ########################### INICIO DO CÓDIGO IOS ###################################
+// ####################################################################################
+
+function AppIOS() {
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState('home'); 
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [statusMsg, setStatusMsg] = useState('Iniciando protocolos...');
+  const [prizeType, setPrizeType] = useState(null);
+  const [isLuckyWin, setIsLuckyWin] = useState(false);
+  const [participantNumber, setParticipantNumber] = useState(null);
+  const [leads, setLeads] = useState([]);
+  const [adminPass, setAdminPass] = useState('');
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [selectedFlash, setSelectedFlash] = useState(null);
+  const [customerName, setCustomerName] = useState('');
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [showRegulations, setShowRegulations] = useState(false); 
+  const [termsAccepted, setTermsAccepted] = useState(false); 
+  const timerRef = useRef(null);
+
+  // --- BLOQUEIOS RÍGIDOS IOS ---
+  const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
+  
+  const [isBlocked, setIsBlocked] = useState(() => {
+    // Se já existe flag de bloqueio ou se o usuário já tentou acessar antes nesta sessão/aparelho
+    const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+    const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
+    return blocked || alreadyHadSession;
+  });
+
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const saved = safeStorage.getItem('sumar_timer');
+    return saved !== null ? parseInt(saved, 10) : 600; 
+  });
+
+  // Validação de segurança ao montar o componente
+  useEffect(() => {
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (!isSafeDevice) {
+      // Bloqueio de Re-acesso: Se ele já entrou na conexão uma vez e recarregou a página, bloqueia.
+      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
+        setIsBlocked(true);
+        safeStorage.setItem('sumar_promo_blocked', 'true');
+      }
+    }
+  }, [isSafeDevice]);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else { await signInAnonymously(auth); }
+      } catch (err) { console.error("Auth error"); }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const leadsRef = getLeadsCollection();
+    const unsubscribe = onSnapshot(leadsRef, (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setLeads(list);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // Monitoramento de Bloqueio e Tempo
+  useEffect(() => {
+    if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
+        setView('expired'); 
+    }
+
+    if (timeLeft <= 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
+      safeStorage.setItem('sumar_promo_blocked', 'true');
+      setIsBlocked(true);
+      setView('expired');
+    }
+    
+    if (timeLeft >= 0 && timeLeft <= 600) { 
+        safeStorage.setItem('sumar_timer', timeLeft.toString()); 
+    }
+  }, [timeLeft, view, isBlocked]);
+
+  useEffect(() => {
+    const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
+    if (timerActiveStages.includes(view) && !isBlocked) {
+      if (!safeStorage.getItem('sumar_startTime')) {
+        safeStorage.setItem('sumar_startTime', Date.now().toString());
+        safeStorage.setItem('sumar_already_accessed', 'true');
+        safeSession.setItem('sumar_session_active', 'true');
+      }
+
+      timerRef.current = setInterval(() => {
+        const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const remaining = 600 - elapsed;
+        
+        if (remaining <= 0) {
+            setTimeLeft(0);
+            setIsBlocked(true);
+            safeStorage.setItem('sumar_promo_blocked', 'true');
+            clearInterval(timerRef.current);
+        } else {
+            setTimeLeft(remaining);
+        }
+      }, 1000);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [view, isBlocked]);
+
+  const startConnection = () => {
+    // No iOS, marcamos a intenção de acesso no milissegundo que ele clica
+    safeSession.setItem('sumar_session_started', 'true');
+    
+    setView('loading');
+    setLoadingProgress(0);
+    let p = 0;
+    const interval = setInterval(() => {
+      p += Math.random() * 5; 
+      if (p > 100) p = 100;
+      setLoadingProgress(p);
+      
+      if (p < 30) setStatusMsg("Validando integridade iOS...");
+      else if (p < 60) setStatusMsg("Protegendo sessão contra reset...");
+      else setStatusMsg("Finalizando conexão segura...");
+
+      if (p >= 100) {
+        clearInterval(interval);
+        if (safeStorage.getItem('sumar_promo_blocked') === 'true' || isBlocked) {
+          setView('expired');
+        } else {
+          setView('connection_failed');
+        }
+      }
+    }, 100);
+  };
+
+  const determinePrize = () => {
+    const confirmedFree = leads.filter(l => l.prize === 'free').length;
+    const confirmedDiscount = leads.filter(l => l.prize === 'discount').length;
+    const currentParticipantNum = confirmedFree + confirmedDiscount + 1;
+    setParticipantNumber(currentParticipantNum);
+    if (confirmedFree < 10) { setPrizeType('free'); setIsLuckyWin(currentParticipantNum > 10); }
+    else if (confirmedDiscount < 10) { setPrizeType('discount'); setIsLuckyWin(currentParticipantNum > 20); }
+    else { setPrizeType('none'); setIsLuckyWin(false); }
+    setView('result');
+  };
+
+  const handleFinalConfirm = async () => {
+    if (!customerName) return alert("Por favor, informe seu nome!");
+    if (!selectedFlash) return alert("Selecione uma arte!");
+    try {
+      const leadsRef = getLeadsCollection();
+      await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
+      
+      // Bloqueio permanente pós-conclusão
+      safeStorage.setItem('sumar_promo_blocked', 'true');
+      
+      const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
+      const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
+      window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
+      setView('success');
+    } catch (e) { alert("Erro ao salvar."); }
+  };
+
+  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
+
+  const grantAdminImmunity = () => {
+    safeStorage.clear(); safeSession.clear();
+    safeStorage.setItem('sumar_admin_immunity', 'true'); 
+    setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
+    alert("MODO ADMINISTRADOR: BLOQUEIOS REMOVIDOS"); setView('home');
+  };
+
+  const deleteSelectedLeads = async () => {
+    if (selectedLeadIds.length === 0) return;
+    const batch = writeBatch(db);
+    selectedLeadIds.forEach(id => batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'leads', id)));
+    await batch.commit(); setSelectedLeadIds([]);
+  };
+
+  // Renderização de Visual (Fiel ao Original)
+  if (view === 'admin') { /* ... (Mesmo código do Admin Android) ... */ 
+    return (
+        <div style={styles.container}>
+          <BackgroundDrift />
+          <div style={styles.box}>
+            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px', borderBottom:'1px solid rgba(255,255,255,0.1)', paddingBottom:'12px', flexShrink: 0}}>
+              <h2 style={{color:'#ff003c', margin:0, fontSize: '16px', fontWeight: '800'}}>PAINEL OPERACIONAL (iOS)</h2>
+              <button onClick={() => setView('home')} style={{background:'none', border:'none', color:'#888', textDecoration:'underline', cursor:'pointer', fontSize:'11px'}}>SAIR</button>
+            </div>
+            {!isAdminUnlocked ? (
+              <div style={styles.contentCenter}>
+                <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+                <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
+              </div>
+            ) : (
+              <div style={{display:'flex', flexDirection: 'column', height: '100%'}}>
+                <div style={styles.scrollArea}>
+                  {leads.map(l => (
+                    <div key={l.id} onClick={() => setSelectedLeadIds(prev => prev.includes(l.id) ? prev.filter(i => i !== l.id) : [...prev, l.id])} style={{display:'flex', gap:'12px', padding:'12px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems: 'center', cursor: 'pointer', backgroundColor: selectedLeadIds.includes(l.id) ? 'rgba(255, 0, 60, 0.05)' : 'transparent', borderRadius: '8px'}}>
+                      {selectedLeadIds.includes(l.id) ? <CheckSquare size={16} color="#ff003c" /> : <Square size={16} color="#555" />}
+                      <div style={{fontSize:'12px'}}><div style={{fontWeight:'700'}}>{l.name}</div><div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'}</div></div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={deleteSelectedLeads} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', marginBottom: '10px'}}>APAGAR SELECIONADOS</button>
+                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853'}}>LIMPAR MEU BLOQUEIO (ADM)</button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+  }
+
+  if (view === 'expired') {
+    return (
+      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" /><h1 style={{ color: '#ff003c', fontWeight: '900', textAlign: 'center' }}>ACESSO INVALIDADO</h1><p style={{ textAlign: 'center', fontSize: '13px' }}>Detectamos uma tentativa de re-acesso ou o tempo de segurança expirou. Por integridade da promoção, sua sessão foi encerrada.</p><button onClick={() => window.open('https://wa.me/5581994909686')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>SUPORTE WHATSAPP</button></div></div></div>
+    );
+  }
+
+  return (
+    <div style={styles.container}><BackgroundDrift /><div style={styles.box}>
+        {!['home', 'loading', 'admin', 'expired'].includes(view) && <div style={styles.timer}><Clock size={12}/> {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</div>}
+        
+        {view === 'home' && (
+            <div style={{...styles.contentCenter, textAlign:'center'}}><Wifi size={40} color="#ff003c" /><h1 style={{fontSize:'36px', fontWeight:'900', color: '#fff'}}>SUMAR</h1><p>Conecte-se para liberar seu cupom iOS.</p><button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5}}>INICIAR CONEXÃO</button><div style={{marginTop: '15px'}}><input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} id="termsCheckIOS"/><label htmlFor="termsCheckIOS" style={{fontSize: '12px', color: '#ccc', marginLeft: '8px'}}>Aceito os termos da promoção</label></div><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button></div>
+        )}
+
+        {view === 'loading' && (
+            <div style={{...styles.contentCenter, textAlign:'center'}}><h2>CONECTANDO...</h2><div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden'}}><div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s'}}></div></div><p>{statusMsg}</p></div>
+        )}
+
+        {view === 'connection_failed' && (
+          <div style={{...styles.contentCenter, textAlign:'center'}}><AlertTriangle size={28} color="#ff003c" /><h1>ERRO DE REDE</h1><p>Não foi possível validar seu Wi-Fi, mas sua vaga foi reservada por 10 minutos!</p><button onClick={determinePrize} style={styles.btn}>VER MINHA PREMIAÇÃO</button></div>
+        )}
+
+        {view === 'result' && (
+          <div style={{...styles.contentCenter, textAlign:'center'}}>{prizeType === 'none' ? (<div><h1>😔</h1><p>Vagas esgotadas.</p></div>) : (<div style={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center'}}><div style={{backgroundColor:'#fff', color:'#000', padding:'20px', borderRadius: '16px', fontWeight:'900', width: '90%'}}>{prizeType === 'free' ? 'TATUAGEM GRÁTIS' : '50% DE DESCONTO'}</div><button onClick={() => setView('catalog')} style={{...styles.btn, marginTop: '20px'}}>ESCOLHER ARTE</button></div>)}</div>
+        )}
+
+        {view === 'catalog' && (
+          <div style={{display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px'}}><h2 style={{textAlign: 'center'}}>CATÁLOGO</h2><div style={styles.scrollArea}><div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>{CATALOG_IMAGES.map(img => ( <div key={img.id} onClick={() => setSelectedFlash(img)} style={{ border: selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid #333', padding:'4px', borderRadius: '8px' }}><img src={img.src} style={{ width:'100%', borderRadius: '4px' }} /></div> ))}</div></div><button onClick={() => selectedFlash ? setView('form') : alert("Selecione!")} style={styles.btn}>CONTINUAR</button></div>
+        )}
+
+        {view === 'form' && (
+          <div style={{...styles.contentCenter, textAlign: 'center'}}><h2>IDENTIFICAÇÃO</h2><input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} /><button onClick={handleFinalConfirm} style={styles.btn}>RESGATAR CUPOM</button></div>
+        )}
+
+        {view === 'success' && (
+          <div style={{...styles.contentCenter, textAlign:'center'}}><CheckSquare size={40} color="#00ff64" /><h2>SUCESSO!</h2><p>Vaga garantida. O estúdio aguarda seu contato.</p></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ####################################################################################
+// ########################### COMPONENTE DE SELEÇÃO ##################################
+// ####################################################################################
+
+export default function App() {
+  const [os, setOs] = useState(null);
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/android/i.test(userAgent)) {
+      setOs('android');
+    } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+      setOs('ios');
+    } else {
+      setOs('android'); // Default para outros sistemas (como PC)
+    }
+  }, []);
+
+  if (os === 'ios') return <AppIOS />;
+  if (os === 'android') return <AppAndroid />;
+  
+  return <div style={{backgroundColor: '#050505', height: '100vh'}} />; // Splash de carregamento rápido
 }
