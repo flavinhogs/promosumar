@@ -17,7 +17,7 @@ const getFirebaseConfig = () => {
     apiKey: "AIzaSyBw6ZCcBQRTfcQxbbRCUU7POYN_KmNQ6MA",
     authDomain: "sumar-promo.firebaseapp.com",
     projectId: "sumar-promo",
-    storageBucket: "sumar-promo.firebasestorage.app",
+    storageBucket: "sumar-promo.firebasestorage.app",F
     messagingSenderId: "136191422799",
     appId: "1:136191422799:web:bf0e200e39b09b1703153a"
   };
@@ -282,8 +282,8 @@ function AppAndroid() {
           </div>
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
-              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha mestra.</p>
-              <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha.</p>
+              <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
               <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
             </div>
           ) : (
