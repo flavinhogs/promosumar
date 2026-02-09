@@ -17,7 +17,7 @@ const getFirebaseConfig = () => {
     apiKey: "AIzaSyBw6ZCcBQRTfcQxbbRCUU7POYN_KmNQ6MA",
     authDomain: "sumar-promo.firebaseapp.com",
     projectId: "sumar-promo",
-    storageBucket: "sumar-promo.firebasestorage.app",F
+    storageBucket: "sumar-promo.firebasestorage.app",
     messagingSenderId: "136191422799",
     appId: "1:136191422799:web:bf0e200e39b09b1703153a"
   };
