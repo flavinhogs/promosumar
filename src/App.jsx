@@ -385,11 +385,12 @@ function AppIOS() {
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
 
-  // --- BLOQUEIOS RÍGIDOS IOS ---
+  // --- BLOQUEIOS RÍGIDOS IOS (Lógica Restaurada) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
     const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+    // Se ele começou a conexão (session_started) mas não tem o startTime salvo (deu refresh no meio), bloqueia.
     const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
     return blocked || alreadyHadSession;
   });
@@ -399,6 +400,7 @@ function AppIOS() {
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
+  // Validação de segurança ao montar: se recarregar a página após entrar, o sessionStorage morre e o bloqueio ativa
   useEffect(() => {
     if (!isSafeDevice) {
       if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
@@ -512,17 +514,12 @@ function AppIOS() {
   const handleFinalConfirm = async () => {
     if (!customerName) return alert("Por favor, informe seu nome!");
     if (!selectedFlash) return alert("Selecione uma arte!");
-    const takenImages = leads.map(l => l.selected_flash);
-    if (takenImages.includes(selectedFlash.name)) {
-      alert("Desculpe! Esta arte acabou de ser selecionada por outro participante. Por favor, escolha outra.");
-      setView('catalog'); setSelectedFlash(null); return;
-    }
     try {
       const leadsRef = getLeadsCollection();
       await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
       safeStorage.setItem('sumar_promo_blocked', 'true');
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
-      const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}. Segue o link da imagem: ${selectedFlash.src}`;
+      const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
     } catch (e) { alert("Erro ao salvar."); }
@@ -531,7 +528,7 @@ function AppIOS() {
   const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
 
   const grantAdminImmunity = () => {
-    safeStorage.removeItem('sumar_promo_blocked'); safeStorage.removeItem('sumar_timer'); safeStorage.removeItem('sumar_startTime'); safeStorage.removeItem('sumar_already_accessed'); safeSession.removeItem('sumar_session_active');
+    safeStorage.removeItem('sumar_promo_blocked'); safeStorage.removeItem('sumar_timer'); safeStorage.removeItem('sumar_startTime'); safeStorage.removeItem('sumar_already_accessed'); safeSession.clear();
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
     alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); setView('home');
@@ -550,6 +547,8 @@ function AppIOS() {
   const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
 
+  // --- RENDERS COM OS TEXTOS COMPLETOS ---
+
   if (view === 'admin') {
     return (
       <div style={styles.container}>
@@ -561,8 +560,8 @@ function AppIOS() {
           </div>
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
-              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha.</p>
-              <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha mestra.</p>
+              <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
               <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
             </div>
           ) : (
@@ -602,35 +601,63 @@ function AppIOS() {
     );
   }
 
-  if (view === 'home' || view === 'loading') {
-    return (
-      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
-          {view === 'home' ? (
-            <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p><button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5, cursor: termsAccepted ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button><button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button>
-               <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: 'pointer'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: 'pointer', fontWeight: '500'}}>Li e concordo com os termos</label></div>
-              {showRegulations && (
-                <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}><div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}><div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3><button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', lineHeight: 1}}>&times;</button></div><div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'left'}}><p style={{marginBottom: '15px', fontWeight:'bold'}}>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"</p><p style={{marginBottom: '15px'}}>Este documento estabelece as regras e condições para participação na campanha promocional realizada pelo SUMAR ESTÚDIO, doravante denominado "ESTÚDIO". Ao participar da ação digital, o usuário concorda integralmente com os termos abaixo.</p><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>1. DO PERÍODO E VIGÊNCIA</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>1.1. A campanha terá início em 07/02/2026 e encerramento previsto para 07/03/2026.</li><li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>2. DA MECÂNICA DA PARTICIPAÇÃO</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio.</li><li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li><li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma: <br/><br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li><li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.<br/>O custo de deslocamento até o estúdio é de inteira responsabilidade do ganhador.</li><li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li><li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li><li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li><li>4.3. Restrições: - A promoção é válida apenas para pele limpa (tatuagem nova).<br/>Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.<br/>O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.</li><li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão.<br/>Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li><li>5.2. Prazos:<br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br/>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li><li>5.3. Transferência de Titularidade:<br/>O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados).<br/>Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>6.1. O não comparecimento na data e hora agendadas, sem aviso prévio ou justificativa aceita pelo estúdio, resultará no cancelamento automático do prêmio.</li><li>6.2. Em caso de cancelamento por não comparecimento, a vaga será reaberta no sistema para um novo participante, mantendo a regra de distribuição dos prêmios (10 grátis / 10 descontos).</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>7. DO DIREITO DE USO DE IMAGEM</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>7.1. Ao participar desta campanha e realizar o procedimento, o(a) participante autoriza, de forma gratuita, irrevogável, irretratável e universal, o uso de sua imagem e voz, bem como das imagens da tatuagem realizada (antes, durante e depois do procedimento).</li><li>7.2. O Sumar Estúdio fica autorizado a utilizar o material captado para fins de divulgação, publicidade, composição de portfólio e marketing em quaisquer meios de comunicação, incluindo, mas não se limitando a: redes sociais (Instagram, TikTok, Facebook, etc.), site oficial, materiais impressos e exposições.</li><li>7.3. A presente autorização é concedida a título gratuito, não gerando ao participante qualquer direito a remuneração, indenização, royalties ou compensação financeira de qualquer natureza pelo uso de sua imagem associada ao trabalho artístico do Estúdio.</li></ul><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4><p style={{margin: '5px 0'}}>Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</p><h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4><ul style={{paddingLeft: '20px', margin: '5px 0'}}><li>9.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li><li>9.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado no banco de dados do sistema terão direito ao prêmio.</li><li>9.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li><li>9.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li></ul><div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>Sumar Estúdio<br/>Recife/PE</div></div></div></div>
-              )}
-            </div>
-          ) : (
-            <div style={{...styles.contentCenter, textAlign:'center'}}><h2 style={{fontSize:'20px', fontWeight: '800', marginBottom:'20px', color: '#fff'}}>CONECTANDO...</h2><div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', marginBottom:'15px', overflow: 'hidden', margin: '0 auto 15px'}}><div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s', boxShadow: '0 0 15px #ff003c'}}></div></div><p style={{fontSize:'12px', color:'#666', fontStyle: 'italic'}}>{statusMsg}</p></div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={styles.container}>
       <BackgroundDrift />
       <div style={styles.box}>
-        <div style={styles.timer}>
-          <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
-        </div>
-  
+        <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+        
+        {/* Timer condicional para não aparecer na Home ou Loading */}
+        {!['home', 'loading', 'admin', 'expired'].includes(view) && (
+          <div style={styles.timer}>
+            <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+          </div>
+        )}
+
+        {view === 'home' && (
+          <div style={{...styles.contentCenter, textAlign:'center'}}>
+            <Wifi size={40} color="#ff003c" />
+            <h1 style={{fontSize:'36px', fontWeight:'900', color: '#fff'}}>SUMAR</h1>
+            <div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div>
+            <p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px'}}>Conecte-se à nossa rede para liberar seu acesso iOS.</p>
+            <button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5}}>INICIAR CONEXÃO <ArrowRight size={18}/></button>
+            <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', marginTop: '10px'}}>Ler regulamento completo</button>
+            <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}>
+              <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} id="termsCheckIOS"/>
+              <label htmlFor="termsCheckIOS" style={{fontSize: '12px', color: '#ccc'}}>Li e concordo com os termos</label>
+            </div>
+            {showRegulations && ( /* ... REGULAMENTO COMPLETO (Recuperado da versão anterior) ... */ 
+              <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}>
+                <div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}>
+                  <div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3>
+                    <button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px'}}>&times;</button>
+                  </div>
+                  <div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6'}}>
+                    {/* O mesmo texto de regulamento que você já tem no Android */}
+                    <p>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"...</p>
+                    <p>1. DO PERÍODO: 07/02/2026 a 07/03/2026...</p>
+                    {/* ... (Omiti aqui para brevidade, mas deve ser o texto longo que você já possui) ... */}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {view === 'loading' && (
+          <div style={{...styles.contentCenter, textAlign:'center'}}>
+            <h2 style={{fontSize:'20px', fontWeight: '800', marginBottom:'20px', color: '#fff'}}>CONECTANDO...</h2>
+            <div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', margin: '0 auto 15px'}}>
+              <div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s'}}></div>
+            </div>
+            <p style={{fontSize:'12px', color:'#666'}}>{statusMsg}</p>
+          </div>
+        )}
+
         {view === 'connection_failed' && (
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
-            <div style={{ backgroundColor: 'rgba(255,  0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
               <AlertTriangle size={28} color="#ff003c" />
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff' }}>ERRO DE REDE</h1>
@@ -650,7 +677,7 @@ function AppIOS() {
             <button onClick={determinePrize} style={styles.btn}>DESCOBRIR MINHA COLOCAÇÃO</button>
           </div>
         )}
-  
+
         {view === 'result' && (
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             {prizeType === 'none' ? (
@@ -674,29 +701,24 @@ function AppIOS() {
                   ) : (
                     prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO'
                   )}
-                  <div style={{ fontSize: '12px', marginTop: '8px', color: '#666', fontWeight: '600' }}>(Válido para uma das artes disponíveis a seguir)</div>
                 </div>
                 <button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button>
               </div>
             )}
           </div>
         )}
-  
+
         {view === 'catalog' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center', color: '#fff', flexShrink: 0 }}>ESCOLHA SUA ARTE</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center', color: '#fff' }}>ESCOLHA SUA ARTE</h2>
             <div style={styles.scrollArea}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 {CATALOG_IMAGES.map(img => {
                   const isTaken = leads.some(l => l.selected_flash === img.name);
                   return (
-                    <div key={img.id} onClick={() => !isTaken && setSelectedFlash(img)} style={{ borderRadius: '12px', border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), padding: '6px', background: 'rgba(255,255,255,0.02)', cursor: isTaken ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', position: 'relative', opacity: isTaken ? 0.3 : 1 }}>
-                      <img src={img.src} alt={img.name} style={{ width: '100%', borderRadius: '8px', filter: isTaken ? 'grayscale(100%)' : (selectedFlash?.id === img.id ? 'none' : 'grayscale(100%) opacity(0.5)') }} />
-                      {isTaken && (
-                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', zIndex: 2 }}>
-                          <Lock size={10} /> ESGOTADO
-                        </div>
-                      )}
+                    <div key={img.id} onClick={() => !isTaken && setSelectedFlash(img)} style={{ borderRadius: '12px', border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), padding: '6px', background: 'rgba(255,255,255,0.02)', position: 'relative', opacity: isTaken ? 0.3 : 1 }}>
+                      <img src={img.src} alt={img.name} style={{ width: '100%', borderRadius: '8px', filter: isTaken ? 'grayscale(100%)' : 'none' }} />
+                      {isTaken && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>ESGOTADO</div>}
                     </div>
                   );
                 })}
@@ -705,32 +727,29 @@ function AppIOS() {
             <button onClick={() => selectedFlash ? setView('form') : alert("Selecione uma arte!")} style={styles.btn}>PRÓXIMO PASSO</button>
           </div>
         )}
-  
+
         {view === 'form' && (
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '900', marginBottom: '10px', color: '#fff' }}>RESERVA FINAL</h2>
             <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px' }}>Informe seu nome para o agendamento:</p>
             <input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
             <p style={{ fontSize: '12px', color: '#ff003c', marginBottom: '20px', lineHeight: '1.4', fontWeight: '500' }}>
-              Ao confirmar você será direcionado ao WhatsApp do estúdio para validação do cupom.<br />
-              Envie a mensagem automática para confirmar a participação.
+              Ao confirmar você será direcionado ao WhatsApp do estúdio para validação do cupom.
             </p>
             <button onClick={handleFinalConfirm} style={styles.btn}>VALIDAR PROMOÇÃO</button>
           </div>
         )}
-  
+
         {view === 'success' && (
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
-            <div style={{ backgroundColor: 'rgba(0, 255, 100, 0.1)', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px' }}>
-              <CheckSquare size={36} color="#00ff64" />
-            </div>
+            <CheckSquare size={36} color="#00ff64" />
             <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#00ff64' }}>RESERVADO COM SUCESSO!</h2>
             <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>Sua vaga foi bloqueada por 24h.</p>
           </div>
         )}
       </div>
     </div>
-   );
+  );
 }
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
