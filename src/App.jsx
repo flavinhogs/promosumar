@@ -385,14 +385,21 @@ function AppIOS() {
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
 
-  // --- BLOQUEIOS RÍGIDOS IOS (Lógica Restaurada) ---
+  // --- BLOQUEIOS RÍGIDOS (Lógica de Chance Única) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
+    if (safeStorage.getItem('sumar_admin_immunity') === 'true') return false;
+    
     const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Se ele começou a conexão (session_started) mas não tem o startTime salvo (deu refresh no meio), bloqueia.
-    const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
-    return blocked || alreadyHadSession;
+    
+    // Bloqueio de Refresh/Desistência: 
+    // Se o marcador permanente (localStorage) existe, mas o de sessão ativa (sessionStorage) não,
+    // significa que a página foi recarregada ou a aba fechada e reaberta.
+    const alreadyAccessed = safeStorage.getItem('sumar_already_accessed') === 'true';
+    const sessionActive = safeSession.getItem('sumar_session_active') === 'true';
+    
+    return blocked || (alreadyAccessed && !sessionActive);
   });
 
   const [timeLeft, setTimeLeft] = useState(() => {
@@ -400,7 +407,7 @@ function AppIOS() {
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // Validação de segurança ao montar: se recarregar a página após entrar, o sessionStorage morre e o bloqueio ativa
+  // Verificação constante ao montar: Garante que o bloqueio seja aplicado se a sessão morrer
   useEffect(() => {
     if (!isSafeDevice) {
       if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
@@ -425,7 +432,7 @@ function AppIOS() {
 
   useEffect(() => {
     if (!user) return;
-    const leadsRef = getLeadsCollection();
+    const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
     const unsubscribe = onSnapshot(leadsRef, (snap) => {
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -453,8 +460,6 @@ function AppIOS() {
     if (timerActiveStages.includes(view) && !isBlocked) {
       if (!safeStorage.getItem('sumar_startTime')) {
         safeStorage.setItem('sumar_startTime', Date.now().toString());
-        safeStorage.setItem('sumar_already_accessed', 'true');
-        safeSession.setItem('sumar_session_active', 'true');
       }
       timerRef.current = setInterval(() => {
         const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
@@ -474,7 +479,12 @@ function AppIOS() {
   }, [view, isBlocked]);
 
   const startConnection = () => {
-    safeSession.setItem('sumar_session_started', 'true');
+    // MARCA O ACESSO NO PERMANENTE E NA SESSÃO
+    if (!isSafeDevice) {
+      safeStorage.setItem('sumar_already_accessed', 'true');
+      safeSession.setItem('sumar_session_active', 'true');
+    }
+    
     setView('loading');
     setLoadingProgress(0);
     let p = 0;
@@ -515,9 +525,16 @@ function AppIOS() {
     if (!customerName) return alert("Por favor, informe seu nome!");
     if (!selectedFlash) return alert("Selecione uma arte!");
     try {
-      const leadsRef = getLeadsCollection();
-      await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
+      const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
+      await addDoc(leadsRef, { 
+        name: customerName, 
+        prize: prizeType, 
+        selected_flash: selectedFlash.name, 
+        participant_n: participantNumber, 
+        created_at: serverTimestamp() 
+      });
       safeStorage.setItem('sumar_promo_blocked', 'true');
+      setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
       const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
@@ -528,10 +545,17 @@ function AppIOS() {
   const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
 
   const grantAdminImmunity = () => {
-    safeStorage.removeItem('sumar_promo_blocked'); safeStorage.removeItem('sumar_timer'); safeStorage.removeItem('sumar_startTime'); safeStorage.removeItem('sumar_already_accessed'); safeSession.clear();
+    safeStorage.removeItem('sumar_promo_blocked'); 
+    safeStorage.removeItem('sumar_timer'); 
+    safeStorage.removeItem('sumar_startTime'); 
+    safeStorage.removeItem('sumar_already_accessed'); 
+    safeSession.clear();
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
-    setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
-    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); setView('home');
+    setIsSafeDevice(true); 
+    setIsBlocked(false); 
+    setTimeLeft(600); 
+    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); 
+    setView('home');
   };
 
   const deleteSelectedLeads = async () => {
@@ -546,8 +570,6 @@ function AppIOS() {
 
   const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
-
-  // --- RENDERS COM OS TEXTOS COMPLETOS ---
 
   if (view === 'admin') {
     return (
@@ -606,8 +628,6 @@ function AppIOS() {
       <BackgroundDrift />
       <div style={styles.box}>
         <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
-        
-        {/* Timer condicional para não aparecer na Home ou Loading */}
         {!['home', 'loading', 'admin', 'expired'].includes(view) && (
           <div style={styles.timer}>
             <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
@@ -626,7 +646,7 @@ function AppIOS() {
               <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} id="termsCheckIOS"/>
               <label htmlFor="termsCheckIOS" style={{fontSize: '12px', color: '#ccc'}}>Li e concordo com os termos</label>
             </div>
-            {showRegulations && ( /* ... REGULAMENTO COMPLETO (Recuperado da versão anterior) ... */ 
+            {showRegulations && (
               <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}>
                 <div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}>
                   <div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -634,10 +654,8 @@ function AppIOS() {
                     <button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px'}}>&times;</button>
                   </div>
                   <div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6'}}>
-                    {/* O mesmo texto de regulamento que você já tem no Android */}
                     <p>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"...</p>
                     <p>1. DO PERÍODO: 07/02/2026 a 07/03/2026...</p>
-                    {/* ... (Omiti aqui para brevidade, mas deve ser o texto longo que você já possui) ... */}
                   </div>
                 </div>
               </div>
