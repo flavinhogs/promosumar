@@ -386,7 +386,7 @@ function AppIOS() {
   
   const timerRef = useRef(null);
 
-  // ID de Visitante Estável para registro no banco (Backup Silencioso)
+  // ID de Visitante Estável para registro no banco (Mantido do Código 1)
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -395,12 +395,11 @@ function AppIOS() {
     return newId;
   });
 
-  // --- BLOQUEIOS RÍGIDOS IOS (EXATOS PARÂMETROS DO SEU CÓDIGO) ---
+  // --- BLOQUEIOS RÍGIDOS IOS (TRANSPORTADOS DO CÓDIGO 2) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
     const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Parâmetro de Bloqueio 1: Se já tinha sessão iniciada mas não gravou o timer (Sinal de refresh no Loading)
     const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
     return blocked || alreadyHadSession;
   });
@@ -410,7 +409,7 @@ function AppIOS() {
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // Parâmetro de Bloqueio 2: Reforço de persistência (Bloqueio se já acessou mas a sessão da aba sumiu)
+  // Validação de segurança ao montar (Lógica do Código 2)
   useEffect(() => {
     if (!isSafeDevice) {
       if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
@@ -420,12 +419,11 @@ function AppIOS() {
     }
   }, [isSafeDevice]);
 
-  // --- CONTROLE DE SEGURANÇA E SPLASH (UX MANTIDA) ---
+  // --- CONTROLE DE SEGURANÇA E SPLASH (UX MANTIDA DO CÓDIGO 1) ---
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [splashProgress, setSplashProgress] = useState(0);
   const [splashText, setSplashText] = useState('Autenticando...');
   
-  // 1. Inicialização de Autenticação
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -443,7 +441,6 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Splash Screen de Carregamento Inicial
   useEffect(() => {
     if (!user) return;
     let progress = 0;
@@ -465,7 +462,6 @@ function AppIOS() {
     return () => clearInterval(splashInterval);
   }, [user]);
 
-  // 3. Busca de Leads
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -477,9 +473,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Gestão de Views e Tempo Esgotado
   useEffect(() => {
-    // AJUSTE PARA REFRESH: Se estiver bloqueado, envia para 'expired' independente da tela atual (exceto admin/sucesso)
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
@@ -495,7 +489,6 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Cronômetro de Segurança (Sincronizado com Parâmetros de Bloqueio EXATOS)
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -521,10 +514,11 @@ function AppIOS() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
+  // --- FUNÇÃO DE CONEXÃO (BLOQUEIOS DO CÓDIGO 2 INTEGRADOS) ---
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // Parâmetro de Bloqueio 3: Marca início da tentativa na sessão (Anti-Refresh no Loading)
+    // Marca intenção de acesso no milissegundo do clique (Lógica Código 2)
     safeSession.setItem('sumar_session_started', 'true');
 
     if (!isSafeDevice) {
@@ -544,22 +538,24 @@ function AppIOS() {
     setLoadingProgress(0);
     let p = 0;
     const interval = setInterval(() => {
-      p += Math.random() * 8; 
+      p += Math.random() * 5; // Velocidade do código 2
       if (p > 100) p = 100;
       setLoadingProgress(p);
       
-      if (p < 20) setStatusMsg("Escaneando canais de rede...");
-      else if (p < 40) setStatusMsg("Validando SSL do Estúdio...");
-      else if (p < 60) setStatusMsg("Otimizando gateway de acesso...");
-      else if (p < 80) setStatusMsg("Sincronizando banco de vagas...");
-      else setStatusMsg("Finalizando túnel seguro...");
+      if (p < 30) setStatusMsg("Validando integridade iOS...");
+      else if (p < 60) setStatusMsg("Protegendo sessão contra reset...");
+      else setStatusMsg("Finalizando conexão segura...");
 
       if (p >= 100) {
         clearInterval(interval);
-        if (isBlocked) setView('expired');
-        else setView('connection_failed');
+        // Verificação dupla de bloqueio do Código 2
+        if (safeStorage.getItem('sumar_promo_blocked') === 'true' || isBlocked) {
+            setView('expired');
+        } else {
+            setView('connection_failed');
+        }
       }
-    }, 120);
+    }, 100);
   };
 
   const determinePrize = () => {
@@ -585,6 +581,7 @@ function AppIOS() {
         created_at: serverTimestamp(),
         v_id: visitorId
       });
+      // Bloqueio permanente pós-conclusão (Código 2)
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
@@ -628,7 +625,7 @@ function AppIOS() {
   const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
 
-  // --- RENDERS ---
+  // --- RENDERS (MANTIDOS DO CÓDIGO 1) ---
 
   if (isCheckingSession || !user) {
     return (
@@ -863,7 +860,6 @@ function AppIOS() {
     </div>
   );
 }
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
