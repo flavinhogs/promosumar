@@ -385,51 +385,62 @@ function AppIOS() {
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
 
-  // --- BLOQUEIOS RÍGIDOS (Lógica de Chance Única) ---
+  // --- CONTROLE DE SEGURANÇA SERVIDOR (FIREBASE) ---
+  const [sessionRecord, setSessionRecord] = useState(null);
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
-  
-  const [isBlocked, setIsBlocked] = useState(() => {
-    if (safeStorage.getItem('sumar_admin_immunity') === 'true') return false;
-    
-    const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    
-    // Bloqueio de Refresh/Desistência: 
-    // Se o marcador permanente (localStorage) existe, mas o de sessão ativa (sessionStorage) não,
-    // significa que a página foi recarregada ou a aba fechada e reaberta.
-    const alreadyAccessed = safeStorage.getItem('sumar_already_accessed') === 'true';
-    const sessionActive = safeSession.getItem('sumar_session_active') === 'true';
-    
-    return blocked || (alreadyAccessed && !sessionActive);
-  });
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // Verificação constante ao montar: Garante que o bloqueio seja aplicado se a sessão morrer
-  useEffect(() => {
-    if (!isSafeDevice) {
-      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
-        setIsBlocked(true);
-        safeStorage.setItem('sumar_promo_blocked', 'true');
-      }
-    }
-  }, [isSafeDevice]);
-
+  // 1. Inicialização de Autenticação
   useEffect(() => {
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
-        } else { await signInAnonymously(auth); }
-      } catch (err) { console.error("Auth error"); }
+        } else { 
+          await signInAnonymously(auth); 
+        }
+      } catch (err) { 
+        console.error("Auth error"); 
+      }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
+  // 2. Monitoramento de Sessão via Firestore (Contorna Limitações do Safari)
+  useEffect(() => {
+    if (!user || isSafeDevice) return;
+
+    // Caminho rigoroso conforme Regra 1: public/data/sessions/{uid}
+    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+    
+    const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setSessionRecord(data);
+        
+        // Lógica de Bloqueio: Se existe registro no servidor, mas a sessão local 
+        // (sessionStorage) não existe ou não está ativa, significa que houve refresh ou tentativa de re-acesso.
+        const localActive = safeSession.getItem('sumar_session_active') === 'true';
+        const alreadyFinished = safeStorage.getItem('sumar_promo_blocked') === 'true';
+
+        if (alreadyFinished || !localActive) {
+          setIsBlocked(true);
+          safeStorage.setItem('sumar_promo_blocked', 'true');
+        }
+      }
+    }, (err) => console.error("Session monitor error"));
+
+    return () => unsubscribe();
+  }, [user, isSafeDevice]);
+
+  // 3. Busca de Leads (Real-time)
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -441,6 +452,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
+  // 4. Efeito de Bloqueio de View
   useEffect(() => {
     if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { 
         setView('expired'); 
@@ -455,6 +467,7 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
+  // 5. Cronômetro de Segurança
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -478,11 +491,24 @@ function AppIOS() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
-  const startConnection = () => {
-    // MARCA O ACESSO NO PERMANENTE E NA SESSÃO
+  const startConnection = async () => {
+    if (!user) return;
+
+    // MARCAÇÃO DE SEGURANÇA: Registra no servidor ANTES de qualquer coisa
     if (!isSafeDevice) {
-      safeStorage.setItem('sumar_already_accessed', 'true');
-      safeSession.setItem('sumar_session_active', 'true');
+      try {
+        const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+        await setDoc(sessionDocRef, {
+          started: true,
+          timestamp: serverTimestamp(),
+          device: 'iOS'
+        });
+        // Marca localmente para esta aba específica
+        safeSession.setItem('sumar_session_active', 'true');
+        safeStorage.setItem('sumar_already_accessed', 'true');
+      } catch (e) {
+        console.error("Erro ao registrar início de sessão segura.");
+      }
     }
     
     setView('loading');
@@ -501,7 +527,7 @@ function AppIOS() {
 
       if (p >= 100) {
         clearInterval(interval);
-        if (safeStorage.getItem('sumar_promo_blocked') === 'true' || isBlocked) {
+        if (isBlocked) {
           setView('expired');
         } else {
           setView('connection_failed');
