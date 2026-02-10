@@ -366,6 +366,7 @@ function AppAndroid() {
 // ####################################################################################
 // ########################### INICIO DO CÓDIGO IOS ###################################
 // ####################################################################################
+
 function AppIOS() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('home'); 
@@ -630,6 +631,7 @@ function AppIOS() {
     );
   }
 
+  // ... (O restante das views: home, loading, connection_failed, result, catalog, form, success, admin - Todas idênticas ao código 1)
 
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
