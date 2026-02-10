@@ -383,6 +383,7 @@ function AppIOS() {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const timerRef = useRef(null);
 
   // --- CONTROLE DE SEGURANÇA SERVIDOR (FIREBASE) ---
@@ -412,30 +413,41 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão via Firestore (Infalível contra Refresh)
+  // 2. Monitoramento de Sessão Rígido (O "Coração" do Bloqueio Safari)
   useEffect(() => {
-    if (!user || isSafeDevice) return;
+    if (!user) return;
+    if (isSafeDevice) {
+      setIsCheckingSession(false);
+      return;
+    }
 
+    // Referência do documento de sessão do utilizador
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
     
+    // Ouvinte em tempo real para detectar re-acesso
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
+      const localActive = safeSession.getItem('sumar_session_active') === 'true';
+      const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+
       if (docSnap.exists()) {
-        // Se o documento existe no banco, o usuário JÁ clicou em iniciar alguma vez.
-        const localSessionActive = safeSession.getItem('sumar_session_active') === 'true';
-        
-        // Se ele não tem o marcador de sessão na aba (sessionStorage), 
-        // mas o banco diz que ele já começou, é um Refresh ou Re-acesso.
-        if (!localSessionActive) {
+        // O servidor diz que já existe uma sessão.
+        // Se a aba não tem o marcador (refresh) ou se já foi marcado como bloqueado anteriormente:
+        if (!localActive || hardBlocked) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
+          setView('expired');
         }
       }
-    }, (err) => console.error("Session monitor error"));
+      setIsCheckingSession(false);
+    }, (err) => {
+      console.error("Erro na monitorização");
+      setIsCheckingSession(false);
+    });
 
     return () => unsubscribe();
   }, [user, isSafeDevice]);
 
-  // 3. Busca de Leads (Real-time)
+  // 3. Busca de Leads (Catálogo em tempo real)
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -447,25 +459,22 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Efeito de Bloqueio Rígido de View (Removido Home/Loading da exceção)
+  // 4. Gestão de Views e Tempo
   useEffect(() => {
-    // Se estiver bloqueado, só pode ver as telas de Expired, Admin ou Success.
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
-
     if (timeLeft <= 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       setView('expired');
     }
-    
     if (timeLeft >= 0 && timeLeft <= 600) { 
         safeStorage.setItem('sumar_timer', timeLeft.toString()); 
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Cronômetro de Segurança
+  // 5. Lógica do Cronómetro
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -490,23 +499,23 @@ function AppIOS() {
   }, [view, isBlocked]);
 
   const startConnection = async () => {
-    if (!user) return;
-    if (isBlocked) return setView('expired');
+    if (!user || isBlocked) return;
 
-    // MARCAÇÃO DE SEGURANÇA: Registra no servidor ANTES de carregar a UI
+    // REGISTO DE SEGURANÇA NO SERVIDOR (Acontece ANTES da animação)
     if (!isSafeDevice) {
       try {
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+        // Marcamos a sessão no Firestore imediatamente
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
           device: 'iOS'
         });
-        // Marca a aba atual como ativa. Se der F5, isso aqui some.
+        // Marcamos a aba atual como ativa
         safeSession.setItem('sumar_session_active', 'true');
         safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
-        console.error("Erro ao registrar início de sessão segura.");
+        console.error("Erro ao blindar sessão.");
       }
     }
     
@@ -514,7 +523,7 @@ function AppIOS() {
     setLoadingProgress(0);
     let p = 0;
     const interval = setInterval(() => {
-      p += Math.random() * 6; 
+      p += Math.random() * 8; 
       if (p > 100) p = 100;
       setLoadingProgress(p);
       
@@ -526,13 +535,14 @@ function AppIOS() {
 
       if (p >= 100) {
         clearInterval(interval);
+        // Re-checagem final antes de abrir o erro de rede
         if (isBlocked) {
           setView('expired');
         } else {
           setView('connection_failed');
         }
       }
-    }, 120);
+    }, 100);
   };
 
   const determinePrize = () => {
@@ -547,8 +557,7 @@ function AppIOS() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!customerName) return alert("Por favor, informe seu nome!");
-    if (!selectedFlash) return alert("Selecione uma arte!");
+    if (!customerName || !selectedFlash) return alert("Preencha todos os campos!");
     try {
       const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
       await addDoc(leadsRef, { 
@@ -564,42 +573,58 @@ function AppIOS() {
       const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
-    } catch (e) { alert("Erro ao salvar."); }
+    } catch (e) { alert("Erro ao guardar dados."); }
   };
 
-  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
+  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Senha incorrecta."); } };
 
-  const grantAdminImmunity = () => {
+  const grantAdminImmunity = async () => {
     safeStorage.removeItem('sumar_promo_blocked'); 
     safeStorage.removeItem('sumar_timer'); 
     safeStorage.removeItem('sumar_startTime'); 
     safeStorage.removeItem('sumar_already_accessed'); 
     safeSession.clear();
-    // Limpar registro no Firestore também para reset completo de administrador
+    
     if (user) {
       const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
-      deleteDoc(sessionDocRef);
+      await deleteDoc(sessionDocRef).catch(() => {});
     }
+    
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); 
     setIsBlocked(false); 
     setTimeLeft(600); 
-    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); 
     setView('home');
   };
 
   const deleteSelectedLeads = async () => {
     if (selectedLeadIds.length === 0) return;
-    if (!window.confirm(`Apagar ${selectedLeadIds.length} contatos?`)) return;
     try {
       const batch = writeBatch(db);
-      selectedLeadIds.forEach(id => { const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', id); batch.delete(docRef); });
-      await batch.commit(); setSelectedLeadIds([]);
+      selectedLeadIds.forEach(id => { 
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', id); 
+        batch.delete(docRef); 
+      });
+      await batch.commit(); 
+      setSelectedLeadIds([]);
     } catch (e) { alert("Erro ao apagar."); }
   };
 
-  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
+  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("O meu acesso foi bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
+
+  // --- RENDERS ---
+
+  if (isCheckingSession) {
+    return (
+      <div style={styles.container}>
+        <BackgroundDrift />
+        <div style={{...styles.box, justifyContent: 'center', alignItems: 'center'}}>
+          <div style={{color: '#ff003c', fontSize: '12px', fontWeight: '800'}}>VALIDANDO CREDENCIAIS...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'admin') {
     return (
@@ -612,7 +637,6 @@ function AppIOS() {
           </div>
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
-              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha mestra.</p>
               <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
               <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
             </div>
@@ -638,7 +662,7 @@ function AppIOS() {
               </div>
               <div style={{flexShrink: 0, marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #222'}}>
                  <button onClick={deleteSelectedLeads} disabled={selectedLeadIds.length === 0} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', height: '40px', fontSize: '12px', opacity: selectedLeadIds.length > 0 ? 1 : 0.3, marginBottom: '10px'}}><Trash2 size={14} /> APAGAR ({selectedLeadIds.length})</button>
-                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}><ShieldCheck size={18} style={{marginRight: '8px'}}/> ATIVAR IMUNIDADE ADM</button>
+                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}><ShieldCheck size={18} style={{marginRight: '8px'}}/> RESETAR MEU ACESSO</button>
               </div>
             </div>
           )}
@@ -710,19 +734,19 @@ function AppIOS() {
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff' }}>ERRO DE REDE</h1>
             <div style={{ fontSize: '13px', color: '#ccc', marginBottom: '15px', lineHeight: '1.4' }}>
-              Não conseguimos validar seu acesso Wi-Fi.<br /><br />
+              Não conseguimos validar o seu acesso Wi-Fi.<br /><br />
               <strong>Ainda bem 🙂</strong><br /><br />
-              Pois se você for um dos 10 primeiros a ter escaneado e validado a promoção, você ganhou uma FLASH TATTOO.
+              Pois se for um dos 10 primeiros a ter feito o scan e validado a promoção, ganhou uma FLASH TATTOO.
             </div>
             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' }}>
-              <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Tá desconfiado?</p>
+              <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Está desconfiado?</p>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
-                Então confere nosso Insta, volta e valida.<br />
-                Mas vai rápido, o cronômetro ali em cima não dá segunda chance.
+                Então veja o nosso Insta, volte e valide.<br />
+                Mas vá rápido, o cronómetro ali em cima não dá segunda oportunidade.
               </p>
               <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
             </div>
-            <button onClick={determinePrize} style={styles.btn}>DESCOBRIR MINHA COLOCAÇÃO</button>
+            <button onClick={determinePrize} style={styles.btn}>DESCOBRIR A MINHA POSIÇÃO</button>
           </div>
         )}
 
@@ -731,19 +755,19 @@ function AppIOS() {
             {prizeType === 'none' ? (
               <div>
                 <h1 style={{ fontSize: '50px' }}>😔</h1>
-                <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Sentimos muito, as vagas esgotaram. Mas nos chamando por aqui, você ainda pode ter uma negociação especial no estúdio.</p>
-                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
+                <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial.</p>
+                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONNOSCO</button>
               </div>
             ) : (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ marginBottom: '10px', fontSize: '12px', color: '#ff003c', fontWeight: '800', letterSpacing: '2px' }}>CUPOM LIBERADO</div>
+                <div style={{ marginBottom: '10px', fontSize: '12px', color: '#ff003c', fontWeight: '800', letterSpacing: '2px' }}>CUPÃO LIBERTADO</div>
                 <div style={{ marginBottom: '15px', fontSize: '14px', color: '#fff', fontWeight: '500' }}>
-                  {isLuckyWin ? `Você foi o ${participantNumber}º participante` : `Você foi o ${participantNumber}º participante e ganhou:`}
+                  {isLuckyWin ? `Foi o ${participantNumber}º participante` : `Foi o ${participantNumber}º participante e ganhou:`}
                 </div>
                 <div style={{ backgroundColor: '#fff', color: '#000', padding: '20px', borderRadius: '16px', fontWeight: '900', fontSize: '18px', transform: 'rotate(-1deg)', boxShadow: '10px 10px 0px #ff003c', marginBottom: '25px', lineHeight: '1.2', width: '90%' }}>
                   {isLuckyWin ? (
                     <>
-                      <div style={{ fontSize: '14px', color: '#ff003c', marginBottom: '8px' }}>QUE SORTE ALGUÉM DESISTIU DE UMA DAS VAGAS E AGORA VOCÊ GANHOU:</div>
+                      <div style={{ fontSize: '14px', color: '#ff003c', marginBottom: '8px' }}>QUE SORTE! ALGUÉM DESISTIU DE UMA VAGA E AGORA GANHOU:</div>
                       {prizeType === 'free' ? 'UMA TATUAGEM GRÁTIS' : '50% DE DESCONTO'}
                     </>
                   ) : (
@@ -758,7 +782,7 @@ function AppIOS() {
 
         {view === 'catalog' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center', color: '#fff' }}>ESCOLHA SUA ARTE</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center', color: '#fff' }}>ESCOLHA A SUA ARTE</h2>
             <div style={styles.scrollArea}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 {CATALOG_IMAGES.map(img => {
@@ -779,10 +803,10 @@ function AppIOS() {
         {view === 'form' && (
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '900', marginBottom: '10px', color: '#fff' }}>RESERVA FINAL</h2>
-            <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px' }}>Informe seu nome para o agendamento:</p>
-            <input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
+            <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px' }}>Indique o seu nome para o agendamento:</p>
+            <input type="text" placeholder="O seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
             <p style={{ fontSize: '12px', color: '#ff003c', marginBottom: '20px', lineHeight: '1.4', fontWeight: '500' }}>
-              Ao confirmar você será direcionado ao WhatsApp do estúdio para validação do cupom.
+              Ao confirmar será direcionado para o WhatsApp do estúdio para validação do cupão.
             </p>
             <button onClick={handleFinalConfirm} style={styles.btn}>VALIDAR PROMOÇÃO</button>
           </div>
@@ -792,7 +816,7 @@ function AppIOS() {
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             <CheckSquare size={36} color="#00ff64" />
             <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#00ff64' }}>RESERVADO COM SUCESSO!</h2>
-            <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>Sua vaga foi bloqueada por 24h.</p>
+            <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>A sua vaga foi bloqueada por 24h.</p>
           </div>
         )}
       </div>
