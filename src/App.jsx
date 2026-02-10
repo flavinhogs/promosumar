@@ -479,7 +479,7 @@ function AppIOS() {
 
   // 4. Gestão de Views e Tempo Esgotado
   useEffect(() => {
-    // AJUSTE CRÍTICO: Removido 'home' e 'loading' da exclusão para garantir que o bloqueio funcione no refresh
+    // AJUSTE PARA REFRESH: Se estiver bloqueado, envia para 'expired' independente da tela atual (exceto admin/sucesso)
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
@@ -863,7 +863,6 @@ function AppIOS() {
     </div>
   );
 }
-
 
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
