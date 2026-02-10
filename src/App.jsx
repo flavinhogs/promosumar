@@ -386,7 +386,7 @@ function AppIOS() {
   
   const timerRef = useRef(null);
 
-  // ID de Visitante Estável para registro no banco
+  // ID de Visitante Estável para registro no banco (Backup Silencioso)
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -395,12 +395,12 @@ function AppIOS() {
     return newId;
   });
 
-  // --- BLOQUEIOS RÍGIDOS IOS (CONFORME PARÂMETROS SOLICITADOS) ---
+  // --- BLOQUEIOS RÍGIDOS IOS (EXATOS PARÂMETROS DO SEU CÓDIGO) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
     const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Bloqueio se iniciou a conexão mas não gravou o início do tempo (Refresh no Loading)
+    // Parâmetro de Bloqueio 1: Se já tinha sessão iniciada mas não gravou o timer (Sinal de refresh no Loading)
     const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
     return blocked || alreadyHadSession;
   });
@@ -410,7 +410,7 @@ function AppIOS() {
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // Reforço de persistência (Bloqueio se já acessou mas a sessão da aba sumiu)
+  // Parâmetro de Bloqueio 2: Reforço de persistência (Bloqueio se já acessou mas a sessão da aba sumiu)
   useEffect(() => {
     if (!isSafeDevice) {
       if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
@@ -479,7 +479,8 @@ function AppIOS() {
 
   // 4. Gestão de Views e Tempo Esgotado
   useEffect(() => {
-    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { 
+    // AJUSTE CRÍTICO: Removido 'home' e 'loading' da exclusão para garantir que o bloqueio funcione no refresh
+    if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
     
@@ -494,7 +495,7 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Cronômetro de Segurança (Sincronizado com Parâmetros de Bloqueio)
+  // 5. Cronômetro de Segurança (Sincronizado com Parâmetros de Bloqueio EXATOS)
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -523,7 +524,7 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // Marca início da tentativa na sessão (Anti-Refresh no Loading)
+    // Parâmetro de Bloqueio 3: Marca início da tentativa na sessão (Anti-Refresh no Loading)
     safeSession.setItem('sumar_session_started', 'true');
 
     if (!isSafeDevice) {
@@ -718,7 +719,6 @@ function AppIOS() {
       <div style={styles.box}>
         <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
         
-        {/* Renderização Condicional do Timer */}
         {!['home', 'loading', 'admin', 'expired'].includes(view) && (
           <div style={styles.timer}>
             <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
@@ -747,7 +747,6 @@ function AppIOS() {
                   <div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6'}}>
                     <p>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"...</p>
                     <p>1. DO PERÍODO: 07/02/2026 a 07/03/2026...</p>
-                    <p>Para ler o regulamento completo, por favor, clique no link abaixo no site principal.</p>
                   </div>
                 </div>
               </div>
@@ -864,6 +863,8 @@ function AppIOS() {
     </div>
   );
 }
+
+
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
