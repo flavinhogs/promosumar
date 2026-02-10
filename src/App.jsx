@@ -383,10 +383,12 @@ function AppIOS() {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
+  
+  // --- CONTROLE DE SEGURANÇA E SPLASH ---
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const timerRef = useRef(null);
-
-  // --- CONTROLE DE SEGURANÇA SERVIDOR (FIREBASE) ---
+  const [splashProgress, setSplashProgress] = useState(0);
+  const [splashText, setSplashText] = useState('Iniciando Handshake...');
+  
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
 
@@ -394,6 +396,8 @@ function AppIOS() {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
+
+  const timerRef = useRef(null);
 
   // 1. Inicialização de Autenticação
   useEffect(() => {
@@ -413,41 +417,60 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (O "Coração" do Bloqueio Safari)
+  // 2. Monitoramento de Sessão Rígido (Com Loading Prolongado)
   useEffect(() => {
     if (!user) return;
+    
+    // Simulação de Loading Inicial Demorado (UX)
+    let progress = 0;
+    const splashInterval = setInterval(() => {
+      progress += 2;
+      if (progress <= 100) setSplashProgress(progress);
+      if (progress < 30) setSplashText("Criptografando túnel iOS...");
+      else if (progress < 60) setSplashText("Validando credenciais de rede...");
+      else if (progress < 90) setSplashText("Sincronizando banco de sessões...");
+      else setSplashText("Finalizando verificação segura...");
+    }, 70);
+
     if (isSafeDevice) {
-      setIsCheckingSession(false);
+      setTimeout(() => {
+        clearInterval(splashInterval);
+        setIsCheckingSession(false);
+      }, 3500);
       return;
     }
 
-    // Referência do documento de sessão do utilizador
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
     
-    // Ouvinte em tempo real para detectar re-acesso
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
       const localActive = safeSession.getItem('sumar_session_active') === 'true';
       const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
 
       if (docSnap.exists()) {
-        // O servidor diz que já existe uma sessão.
-        // Se a aba não tem o marcador (refresh) ou se já foi marcado como bloqueado anteriormente:
         if (!localActive || hardBlocked) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
-          setView('expired');
         }
       }
-      setIsCheckingSession(false);
+      
+      // Só termina o splash depois de 3.5 segundos E ter a resposta do Firebase
+      setTimeout(() => {
+        clearInterval(splashInterval);
+        setSplashProgress(100);
+        setIsCheckingSession(false);
+      }, 3500);
     }, (err) => {
-      console.error("Erro na monitorização");
-      setIsCheckingSession(false);
+      console.error("Monitor error");
+      setTimeout(() => setIsCheckingSession(false), 3500);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearInterval(splashInterval);
+    };
   }, [user, isSafeDevice]);
 
-  // 3. Busca de Leads (Catálogo em tempo real)
+  // 3. Busca de Leads (Real-time)
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -459,22 +482,24 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Gestão de Views e Tempo
+  // 4. Gestão de Views e Bloqueio Automático
   useEffect(() => {
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
+    
     if (timeLeft <= 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       setView('expired');
     }
+    
     if (timeLeft >= 0 && timeLeft <= 600) { 
         safeStorage.setItem('sumar_timer', timeLeft.toString()); 
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Lógica do Cronómetro
+  // 5. Cronômetro
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -501,17 +526,14 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // REGISTO DE SEGURANÇA NO SERVIDOR (Acontece ANTES da animação)
     if (!isSafeDevice) {
       try {
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
-        // Marcamos a sessão no Firestore imediatamente
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
           device: 'iOS'
         });
-        // Marcamos a aba atual como ativa
         safeSession.setItem('sumar_session_active', 'true');
         safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
@@ -535,12 +557,8 @@ function AppIOS() {
 
       if (p >= 100) {
         clearInterval(interval);
-        // Re-checagem final antes de abrir o erro de rede
-        if (isBlocked) {
-          setView('expired');
-        } else {
-          setView('connection_failed');
-        }
+        if (isBlocked) setView('expired');
+        else setView('connection_failed');
       }
     }, 100);
   };
@@ -584,12 +602,10 @@ function AppIOS() {
     safeStorage.removeItem('sumar_startTime'); 
     safeStorage.removeItem('sumar_already_accessed'); 
     safeSession.clear();
-    
     if (user) {
       const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
       await deleteDoc(sessionDocRef).catch(() => {});
     }
-    
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); 
     setIsBlocked(false); 
@@ -620,9 +636,21 @@ function AppIOS() {
       <div style={styles.container}>
         <BackgroundDrift />
         <div style={{...styles.box, justifyContent: 'center', alignItems: 'center'}}>
-          <div style={{color: '#ff003c', fontSize: '12px', fontWeight: '800'}}>VALIDANDO CREDENCIAIS...</div>
+          <div style={{width:'40px', height:'40px', border:'3px solid rgba(255,0,60,0.1)', borderTopColor:'#ff003c', borderRadius:'50%', animation:'spin 1s linear infinite', marginBottom: '20px'}}></div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{color: '#fff', fontSize: '10px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase'}}>{splashText}</div>
+          <div style={{width:'120px', height:'2px', backgroundColor:'rgba(255,255,255,0.05)', marginTop:'10px', borderRadius:'10px', overflow:'hidden'}}>
+             <div style={{height:'100%', backgroundColor:'#ff003c', width: `${splashProgress}%`, transition:'width 0.1s'}}></div>
+          </div>
         </div>
       </div>
+    );
+  }
+
+  // Se bloqueado, forçamos o render da tela de erro independente de qualquer outra view state
+  if (isBlocked && view !== 'admin' && view !== 'success') {
+    return (
+      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
     );
   }
 
@@ -668,12 +696,6 @@ function AppIOS() {
           )}
         </div>
       </div>
-    );
-  }
-
-  if (view === 'expired') {
-    return (
-      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
     );
   }
 
@@ -804,7 +826,7 @@ function AppIOS() {
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '900', marginBottom: '10px', color: '#fff' }}>RESERVA FINAL</h2>
             <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px' }}>Indique o seu nome para o agendamento:</p>
-            <input type="text" placeholder="O seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
+            <input type="text" placeholder="O seu Nome" style={styles.input} value={customerName} onChange={e => setSplashText(e.target.value)} />
             <p style={{ fontSize: '12px', color: '#ff003c', marginBottom: '20px', lineHeight: '1.4', fontWeight: '500' }}>
               Ao confirmar será direcionado para o WhatsApp do estúdio para validação do cupão.
             </p>
