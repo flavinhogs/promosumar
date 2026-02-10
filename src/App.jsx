@@ -389,7 +389,7 @@ function AppIOS() {
   const [splashProgress, setSplashProgress] = useState(0);
   const [splashText, setSplashText] = useState('Autenticando...');
   
-  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página ou fechamento de aba
+  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
   const [hasClickedStart, setHasClickedStart] = useState(false);
 
   // ID de Visitante Estável para contornar limitações do WebKit/Safari
@@ -402,7 +402,14 @@ function AppIOS() {
   });
   
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
-  const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
+  
+  // Inicialização agressiva do bloqueio local
+  const [isBlocked, setIsBlocked] = useState(() => {
+    const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+    // Se existe marca de início local mas não há cronómetro activo, é sinal de refresh precoce
+    const suspectedRefresh = safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active');
+    return hardBlocked || suspectedRefresh;
+  });
 
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
@@ -439,7 +446,7 @@ function AppIOS() {
       if (progress <= 95) setSplashProgress(progress);
       if (progress < 25) setSplashText("Abrindo túnel seguro...");
       else if (progress < 50) setSplashText("Verificando integridade...");
-      else if (progress < 75) setSplashText("Consultando base de dados...");
+      else if (progress < 75) setSplashText("Consultando banco de dados...");
       else setSplashText("Finalizando verificação...");
     }, 50);
 
@@ -451,7 +458,6 @@ function AppIOS() {
       return;
     }
 
-    // Consultamos o servidor usando o VisitorID (persistente no aparelho)
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
@@ -460,8 +466,7 @@ function AppIOS() {
 
       if (docSnap.exists()) {
         // LÓGICA DE BLOQUEIO POR REFRESH OU ABANDONO:
-        // Se existe registro no servidor, mas a memória RAM (hasClickedStart) é falsa
-        // ou a flag de sessão da aba sumiu, significa que o usuário saiu e voltou.
+        // Se o servidor tem registro mas esta aba/sessão não tem o marcador ativo: BLOQUEIA.
         if (!hasClickedStart && !localActive) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
@@ -519,6 +524,7 @@ function AppIOS() {
     if (timerActiveStages.includes(view) && !isBlocked) {
       if (!safeStorage.getItem('sumar_startTime')) {
         safeStorage.setItem('sumar_startTime', Date.now().toString());
+        safeStorage.setItem('sumar_already_accessed', 'true');
         safeSession.setItem('sumar_session_active', 'true');
       }
       timerRef.current = setInterval(() => {
@@ -543,17 +549,17 @@ function AppIOS() {
 
     // Marcador de início na memória RAM (perde se der refresh)
     setHasClickedStart(true); 
+    safeSession.setItem('sumar_session_active', 'true');
+    safeStorage.setItem('sumar_already_accessed', 'true');
 
     if (!isSafeDevice) {
       try {
-        // Grava no Firestore a intenção de início - vinculada ao VisitorID
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
-          device_info: 'iOS-Safari-Strict'
+          device_info: 'iOS-Safari-Refined'
         });
-        safeSession.setItem('sumar_session_active', 'true');
       } catch (e) {
         console.error("Erro ao registrar início de sessão.");
       }
@@ -604,7 +610,6 @@ function AppIOS() {
         created_at: serverTimestamp(),
         v_id: visitorId
       });
-      // Bloqueio permanente após vitória
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
@@ -684,7 +689,7 @@ function AppIOS() {
           </div>
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
-              <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+              <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
               <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
             </div>
           ) : (
@@ -783,7 +788,7 @@ function AppIOS() {
               <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Tá desconfiado?</p>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
                 Então confere nosso Insta, volte e valida.<br />
-                Mas vai rápido, o cronômetro ali em cima não dá segunda chance.
+                Mas vá rápido, o cronômetro ali em cima não dá segunda chance.
               </p>
               <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
             </div>
@@ -797,7 +802,7 @@ function AppIOS() {
               <div>
                 <h1 style={{ fontSize: '50px' }}>😔</h1>
                 <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial no estúdio.</p>
-                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
+                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONNOSCO</button>
               </div>
             ) : (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -864,6 +869,7 @@ function AppIOS() {
     </div>
   );
 }
+
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
