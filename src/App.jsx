@@ -281,8 +281,8 @@ function AppAndroid() {
           </div>
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
-              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha mestra.</p>
-              <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+              <p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha.</p>
+              <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
               <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
             </div>
           ) : (
@@ -564,7 +564,7 @@ function AppIOS() {
             </div>
             {!isAdminUnlocked ? (
               <div style={styles.contentCenter}>
-                <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+                <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
                 <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
               </div>
             ) : (
