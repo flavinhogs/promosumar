@@ -684,7 +684,7 @@ function AppIOS() {
           </div>
           {!isAdminUnlocked ? (
             <div style={styles.contentCenter}>
-              <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+              <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
               <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
             </div>
           ) : (
