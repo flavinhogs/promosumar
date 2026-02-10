@@ -386,7 +386,7 @@ function AppIOS() {
   
   const timerRef = useRef(null);
 
-  // ID de Visitante Estável para contornar limitações do WebKit/Safari em iframes
+  // ID de Visitante Estável para registro no banco
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -395,29 +395,36 @@ function AppIOS() {
     return newId;
   });
 
-  // --- BLOQUEIOS RÍGIDOS IOS (INTEGRADOS) ---
+  // --- BLOQUEIOS RÍGIDOS IOS (CONFORME PARÂMETROS SOLICITADOS) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
-    const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Lógica Proposta: Se iniciou a sessão mas o cronômetro não gravou o startTime (Refresh no Loading), bloqueia.
+    const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+    // Bloqueio se iniciou a conexão mas não gravou o início do tempo (Refresh no Loading)
     const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
-    return hardBlocked || alreadyHadSession;
+    return blocked || alreadyHadSession;
   });
-
-  // --- CONTROLE DE SEGURANÇA E SPLASH ---
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [splashProgress, setSplashProgress] = useState(0);
-  const [splashText, setSplashText] = useState('Autenticando...');
-  
-  // Marcador Volátil (RAM)
-  const [hasClickedStart, setHasClickedStart] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
+  // Reforço de persistência (Bloqueio se já acessou mas a sessão da aba sumiu)
+  useEffect(() => {
+    if (!isSafeDevice) {
+      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
+        setIsBlocked(true);
+        safeStorage.setItem('sumar_promo_blocked', 'true');
+      }
+    }
+  }, [isSafeDevice]);
+
+  // --- CONTROLE DE SEGURANÇA E SPLASH (UX MANTIDA) ---
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [splashProgress, setSplashProgress] = useState(0);
+  const [splashText, setSplashText] = useState('Autenticando...');
+  
   // 1. Inicialização de Autenticação
   useEffect(() => {
     const initAuth = async () => {
@@ -436,20 +443,9 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Reforço de Persistência do Bloqueio
-  useEffect(() => {
-    if (!isSafeDevice) {
-      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
-        setIsBlocked(true);
-        safeStorage.setItem('sumar_promo_blocked', 'true');
-      }
-    }
-  }, [isSafeDevice]);
-
-  // 3. Monitoramento de Sessão via Servidor (Snapshot)
+  // 2. Splash Screen de Carregamento Inicial
   useEffect(() => {
     if (!user) return;
-    
     let progress = 0;
     const splashInterval = setInterval(() => {
       progress += 1.5;
@@ -460,42 +456,16 @@ function AppIOS() {
       else setSplashText("Finalizando verificação...");
     }, 50);
 
-    if (isSafeDevice) {
-      setTimeout(() => {
-        clearInterval(splashInterval);
-        setIsCheckingSession(false);
-      }, 3500);
-      return;
-    }
-
-    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
-    
-    const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
-      const localActive = safeSession.getItem('sumar_session_active') === 'true';
-      if (docSnap.exists()) {
-        // Se o servidor tem registro mas o marcador RAM ou de Sessão local sumiu: BLOQUEIA.
-        if (!hasClickedStart && !localActive) {
-          setIsBlocked(true);
-          safeStorage.setItem('sumar_promo_blocked', 'true');
-        }
-      }
-      
-      setTimeout(() => {
-        clearInterval(splashInterval);
-        setSplashProgress(100);
-        setIsCheckingSession(false);
-      }, 3500);
-    }, (err) => {
-      setTimeout(() => setIsCheckingSession(false), 3500);
-    });
-
-    return () => {
-      unsubscribe();
+    setTimeout(() => {
       clearInterval(splashInterval);
-    };
-  }, [user, isSafeDevice, hasClickedStart, visitorId]);
+      setSplashProgress(100);
+      setIsCheckingSession(false);
+    }, 3500);
 
-  // 4. Busca de Leads
+    return () => clearInterval(splashInterval);
+  }, [user]);
+
+  // 3. Busca de Leads
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -507,7 +477,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 5. Gestão de Views e Tempo Esgotado
+  // 4. Gestão de Views e Tempo Esgotado
   useEffect(() => {
     if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { 
         setView('expired'); 
@@ -524,7 +494,7 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 6. Cronômetro de Segurança
+  // 5. Cronômetro de Segurança (Sincronizado com Parâmetros de Bloqueio)
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -553,9 +523,8 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // Lógica Proposta: Marca início da tentativa na sessão
+    // Marca início da tentativa na sessão (Anti-Refresh no Loading)
     safeSession.setItem('sumar_session_started', 'true');
-    setHasClickedStart(true); 
 
     if (!isSafeDevice) {
       try {
@@ -638,7 +607,6 @@ function AppIOS() {
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); 
     setIsBlocked(false); 
-    setHasClickedStart(false);
     setTimeLeft(600); 
     setView('home');
   };
@@ -896,7 +864,6 @@ function AppIOS() {
     </div>
   );
 }
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
