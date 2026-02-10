@@ -392,7 +392,7 @@ function AppIOS() {
   // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
   const [hasClickedStart, setHasClickedStart] = useState(false);
 
-  // ID de Visitante Estável para contornar limitações do WebKit/Safari
+  // ID de Visitante Estável para contornar limitações do WebKit/Safari em iframes
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -406,7 +406,7 @@ function AppIOS() {
   // Inicialização agressiva do bloqueio local
   const [isBlocked, setIsBlocked] = useState(() => {
     const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Se existe marca de início local mas não há cronómetro activo, é sinal de refresh precoce
+    // Se existe marca de início local persistente mas não há marcador de sessão ativa na aba, é sinal de refresh
     const suspectedRefresh = safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active');
     return hardBlocked || suspectedRefresh;
   });
@@ -436,7 +436,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (Lógica Server-Side Anti-Desistência)
+  // 2. Monitoramento de Sessão Rígido (Lógica Server-Side Anti-Desistência e Anti-Refresh)
   useEffect(() => {
     if (!user) return;
     
@@ -465,8 +465,7 @@ function AppIOS() {
       const storageBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
 
       if (docSnap.exists()) {
-        // LÓGICA DE BLOQUEIO POR REFRESH OU ABANDONO:
-        // Se o servidor tem registro mas esta aba/sessão não tem o marcador ativo: BLOQUEIA.
+        // Se o servidor tem registro mas esta aba não tem o marcador ativo (hasClickedStart é RAM): BLOQUEIA.
         if (!hasClickedStart && !localActive) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
@@ -549,19 +548,22 @@ function AppIOS() {
 
     // Marcador de início na memória RAM (perde se der refresh)
     setHasClickedStart(true); 
+    // Marcador de sessão volátil (perde se fechar a aba)
     safeSession.setItem('sumar_session_active', 'true');
+    // Marcador persistente (fica no aparelho)
     safeStorage.setItem('sumar_already_accessed', 'true');
 
     if (!isSafeDevice) {
       try {
+        // Grava no Firestore a intenção de início - vinculada ao VisitorID único do aparelho
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
-          device_info: 'iOS-Safari-Refined'
+          device_info: 'iOS-Safari-Strict'
         });
       } catch (e) {
-        console.error("Erro ao registrar início de sessão.");
+        console.error("Erro ao registrar início de sessão no servidor.");
       }
     }
     
@@ -581,8 +583,12 @@ function AppIOS() {
 
       if (p >= 100) {
         clearInterval(interval);
-        if (isBlocked) setView('expired');
-        else setView('connection_failed');
+        // Verifica novamente se foi bloqueado durante o loading por outro evento
+        if (isBlocked) {
+          setView('expired');
+        } else {
+          setView('connection_failed');
+        }
       }
     }, 100);
   };
@@ -599,7 +605,7 @@ function AppIOS() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!customerName || !selectedFlash) return alert("Por favor, preencha o seu nome!");
+    if (!customerName || !selectedFlash) return alert("Por favor, preencha o seu nome e escolha uma arte!");
     try {
       const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
       await addDoc(leadsRef, { 
@@ -610,6 +616,7 @@ function AppIOS() {
         created_at: serverTimestamp(),
         v_id: visitorId
       });
+      // Bloqueio permanente após validação concluída
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
@@ -674,7 +681,23 @@ function AppIOS() {
 
   if (isBlocked && view !== 'admin' && view !== 'success') {
     return (
-      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
+      <div style={styles.container}>
+        <BackgroundDrift />
+        <div style={styles.box}>
+          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+          <div style={styles.contentCenter}>
+            <AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} />
+            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1>
+            <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p>
+            <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+              <button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button>
+              <button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button>
+            </div>
+            <p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -787,7 +810,7 @@ function AppIOS() {
             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' }}>
               <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Tá desconfiado?</p>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
-                Então confere nosso Insta, volte e valida.<br />
+                Então confira nosso Insta, volte e valide.<br />
                 Mas vá rápido, o cronômetro ali em cima não dá segunda chance.
               </p>
               <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
@@ -802,7 +825,7 @@ function AppIOS() {
               <div>
                 <h1 style={{ fontSize: '50px' }}>😔</h1>
                 <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial no estúdio.</p>
-                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONNOSCO</button>
+                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
               </div>
             ) : (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -869,7 +892,6 @@ function AppIOS() {
     </div>
   );
 }
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
