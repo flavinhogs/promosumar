@@ -383,52 +383,99 @@ function AppIOS() {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
-  const timerRef = useRef(null);
-
-  // --- BLOQUEIOS RÍGIDOS IOS ---
-  const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
-  const [isBlocked, setIsBlocked] = useState(() => {
-    // Se já existe flag de bloqueio ou se o usuário já tentou acessar antes nesta sessão/aparelho
-    const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
-    return blocked || alreadyHadSession;
-  });
+  // --- CONTROLE DE SEGURANÇA E SPLASH ---
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [splashProgress, setSplashProgress] = useState(0);
+  const [splashText, setSplashText] = useState('Autenticando...');
+  
+  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
+  const [hasClickedStart, setHasClickedStart] = useState(false);
+  
+  const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
+  const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
 
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // Validação de segurança ao montar o componente
-  useEffect(() => {
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    
-    if (!isSafeDevice) {
-      // Bloqueio de Re-acesso: Se ele já entrou na conexão uma vez e recarregou a página, bloqueia.
-      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
-        setIsBlocked(true);
-        safeStorage.setItem('sumar_promo_blocked', 'true');
-      }
-    }
-  }, [isSafeDevice]);
+  const timerRef = useRef(null);
 
+  // 1. Inicialização de Autenticação
   useEffect(() => {
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
-        } else { await signInAnonymously(auth); }
-      } catch (err) { console.error("Auth error"); }
+        } else { 
+          await signInAnonymously(auth); 
+        }
+      } catch (err) { 
+        console.error("Auth error"); 
+      }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
+  // 2. Monitoramento de Sessão Rígido (Anti-Refresh Safari)
   useEffect(() => {
     if (!user) return;
-    const leadsRef = getLeadsCollection();
+    
+    let progress = 0;
+    const splashInterval = setInterval(() => {
+      progress += 1.5;
+      if (progress <= 95) setSplashProgress(progress);
+      if (progress < 25) setSplashText("A abrir túnel seguro...");
+      else if (progress < 50) setSplashText("A verificar integridade da conta...");
+      else if (progress < 75) setSplashText("A consultar base de dados...");
+      else setSplashText("A finalizar verificação...");
+    }, 50);
+
+    if (isSafeDevice) {
+      setTimeout(() => {
+        clearInterval(splashInterval);
+        setIsCheckingSession(false);
+      }, 3500);
+      return;
+    }
+
+    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+    
+    const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        // LÓGICA INFALÍVEL:
+        // Se existe registo no servidor mas o estado 'hasClickedStart' é false,
+        // significa que a página foi recarregada (Refresh), pois o estado resetou.
+        if (!hasClickedStart) {
+          setIsBlocked(true);
+          safeStorage.setItem('sumar_promo_blocked', 'true');
+        }
+      }
+      
+      // Prolongamos o splash para garantir que o Firebase responda antes de mostrar a Home
+      setTimeout(() => {
+        clearInterval(splashInterval);
+        setSplashProgress(100);
+        setIsCheckingSession(false);
+      }, 3500);
+    }, (err) => {
+      console.error("Monitor error", err);
+      setTimeout(() => setIsCheckingSession(false), 3500);
+    });
+
+    return () => {
+      unsubscribe();
+      clearInterval(splashInterval);
+    };
+  }, [user, isSafeDevice, hasClickedStart]);
+
+  // 3. Busca de Leads (Real-time)
+  useEffect(() => {
+    if (!user) return;
+    const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
     const unsubscribe = onSnapshot(leadsRef, (snap) => {
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -437,12 +484,12 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // Monitoramento de Bloqueio e Tempo
+  // 4. Gestão de Views e Bloqueio em Tempo Real
   useEffect(() => {
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
-
+    
     if (timeLeft <= 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
@@ -454,20 +501,17 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
+  // 5. Cronômetro
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
       if (!safeStorage.getItem('sumar_startTime')) {
         safeStorage.setItem('sumar_startTime', Date.now().toString());
-        safeStorage.setItem('sumar_already_accessed', 'true');
-        safeSession.setItem('sumar_session_active', 'true');
       }
-
       timerRef.current = setInterval(() => {
         const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
         const elapsed = Math.floor((Date.now() - start) / 1000);
         const remaining = 600 - elapsed;
-        
         if (remaining <= 0) {
             setTimeLeft(0);
             setIsBlocked(true);
@@ -481,29 +525,43 @@ function AppIOS() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
-  const startConnection = () => {
-    // No iOS, marcamos a intenção de acesso no milissegundo que ele clica
-    safeSession.setItem('sumar_session_started', 'true');
+  const startConnection = async () => {
+    if (!user || isBlocked) return;
+
+    setHasClickedStart(true); // Ativa o marcador volátil na memória
+
+    if (!isSafeDevice) {
+      try {
+        const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+        await setDoc(sessionDocRef, {
+          started: true,
+          timestamp: serverTimestamp(),
+          device: 'iOS-Safari-Strict'
+        });
+        safeStorage.setItem('sumar_already_accessed', 'true');
+      } catch (e) {
+        console.error("Erro ao blindar sessão no servidor.");
+      }
+    }
     
     setView('loading');
     setLoadingProgress(0);
     let p = 0;
     const interval = setInterval(() => {
-      p += Math.random() * 5; 
+      p += Math.random() * 8; 
       if (p > 100) p = 100;
       setLoadingProgress(p);
       
-      if (p < 30) setStatusMsg("Validando integridade iOS...");
-      else if (p < 60) setStatusMsg("Protegendo sessão contra reset...");
-      else setStatusMsg("Finalizando conexão segura...");
+      if (p < 20) setStatusMsg("Escaneando canais de rede...");
+      else if (p < 40) setStatusMsg("Validando SSL do Estúdio...");
+      else if (p < 60) setStatusMsg("Otimizando gateway de acesso...");
+      else if (p < 80) setStatusMsg("Sincronizando banco de vagas...");
+      else setStatusMsg("Finalizando túnel seguro...");
 
       if (p >= 100) {
         clearInterval(interval);
-        if (safeStorage.getItem('sumar_promo_blocked') === 'true' || isBlocked) {
-          setView('expired');
-        } else {
-          setView('connection_failed');
-        }
+        if (isBlocked) setView('expired');
+        else setView('connection_failed');
       }
     }, 100);
   };
@@ -520,115 +578,276 @@ function AppIOS() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!customerName) return alert("Por favor, informe seu nome!");
-    if (!selectedFlash) return alert("Selecione uma arte!");
+    if (!customerName || !selectedFlash) return alert("Por favor, preencha o seu nome!");
     try {
-      const leadsRef = getLeadsCollection();
-      await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
-      
-      // Bloqueio permanente pós-conclusão
+      const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
+      await addDoc(leadsRef, { 
+        name: customerName, 
+        prize: prizeType, 
+        selected_flash: selectedFlash.name, 
+        participant_n: participantNumber, 
+        created_at: serverTimestamp() 
+      });
       safeStorage.setItem('sumar_promo_blocked', 'true');
-      
+      setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
       const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
-    } catch (e) { alert("Erro ao salvar."); }
+    } catch (e) { alert("Erro ao guardar os dados."); }
   };
 
   const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
 
-  const grantAdminImmunity = () => {
-    safeStorage.clear(); safeSession.clear();
+  const grantAdminImmunity = async () => {
+    safeStorage.removeItem('sumar_promo_blocked'); 
+    safeStorage.removeItem('sumar_timer'); 
+    safeStorage.removeItem('sumar_startTime'); 
+    safeStorage.removeItem('sumar_already_accessed'); 
+    safeSession.clear();
+    if (user) {
+      const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+      await deleteDoc(sessionDocRef).catch(() => {});
+    }
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
-    setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
-    alert("MODO ADMINISTRADOR: BLOQUEIOS REMOVIDOS"); setView('home');
+    setIsSafeDevice(true); 
+    setIsBlocked(false); 
+    setHasClickedStart(false);
+    setTimeLeft(600); 
+    setView('home');
   };
 
   const deleteSelectedLeads = async () => {
     if (selectedLeadIds.length === 0) return;
-    const batch = writeBatch(db);
-    selectedLeadIds.forEach(id => batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'leads', id)));
-    await batch.commit(); setSelectedLeadIds([]);
+    try {
+      const batch = writeBatch(db);
+      selectedLeadIds.forEach(id => { 
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', id); 
+        batch.delete(docRef); 
+      });
+      await batch.commit(); 
+      setSelectedLeadIds([]);
+    } catch (e) { alert("Erro ao apagar."); }
   };
 
-  // Renderização de Visual (Fiel ao Original)
-  if (view === 'admin') { /* ... (Mesmo código do Admin Android) ... */ 
+  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("O meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
+  const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
+
+  // --- RENDERS ---
+
+  if (isCheckingSession || !user) {
     return (
-        <div style={styles.container}>
-          <BackgroundDrift />
-          <div style={styles.box}>
-            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px', borderBottom:'1px solid rgba(255,255,255,0.1)', paddingBottom:'12px', flexShrink: 0}}>
-              <h2 style={{color:'#ff003c', margin:0, fontSize: '16px', fontWeight: '800'}}>PAINEL OPERACIONAL (iOS)</h2>
-              <button onClick={() => setView('home')} style={{background:'none', border:'none', color:'#888', textDecoration:'underline', cursor:'pointer', fontSize:'11px'}}>SAIR</button>
-            </div>
-            {!isAdminUnlocked ? (
-              <div style={styles.contentCenter}>
-                <input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
-                <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
-              </div>
-            ) : (
-              <div style={{display:'flex', flexDirection: 'column', height: '100%'}}>
-                <div style={styles.scrollArea}>
-                  {leads.map(l => (
-                    <div key={l.id} onClick={() => setSelectedLeadIds(prev => prev.includes(l.id) ? prev.filter(i => i !== l.id) : [...prev, l.id])} style={{display:'flex', gap:'12px', padding:'12px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems: 'center', cursor: 'pointer', backgroundColor: selectedLeadIds.includes(l.id) ? 'rgba(255, 0, 60, 0.05)' : 'transparent', borderRadius: '8px'}}>
-                      {selectedLeadIds.includes(l.id) ? <CheckSquare size={16} color="#ff003c" /> : <Square size={16} color="#555" />}
-                      <div style={{fontSize:'12px'}}><div style={{fontWeight:'700'}}>{l.name}</div><div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'}</div></div>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={deleteSelectedLeads} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', marginBottom: '10px'}}>APAGAR SELECIONADOS</button>
-                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853'}}>LIMPAR MEU BLOQUEIO (ADM)</button>
-              </div>
-            )}
+      <div style={styles.container}>
+        <BackgroundDrift />
+        <div style={{...styles.box, justifyContent: 'center', alignItems: 'center'}}>
+          <div style={{width:'40px', height:'40px', border:'3px solid rgba(255,0,60,0.1)', borderTopColor:'#ff003c', borderRadius:'50%', animation:'spin 1s linear infinite', marginBottom: '20px'}}></div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{color: '#fff', fontSize: '10px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase'}}>{splashText}</div>
+          <div style={{width:'140px', height:'2px', backgroundColor:'rgba(255,255,255,0.05)', marginTop:'15px', borderRadius:'10px', overflow:'hidden'}}>
+             <div style={{height:'100%', backgroundColor:'#ff003c', width: `${splashProgress}%`, transition:'width 0.1s'}}></div>
           </div>
         </div>
-      );
+      </div>
+    );
   }
 
-  if (view === 'expired') {
+  if (isBlocked && view !== 'admin' && view !== 'success') {
     return (
-      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" /><h1 style={{ color: '#ff003c', fontWeight: '900', textAlign: 'center' }}>ACESSO INVALIDADO</h1><p style={{ textAlign: 'center', fontSize: '13px' }}>Detectamos uma tentativa de re-acesso ou o tempo de segurança expirou. Por integridade da promoção, sua sessão foi encerrada.</p><button onClick={() => window.open('https://wa.me/5581994909686')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>SUPORTE WHATSAPP</button></div></div></div>
+      <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
+    );
+  }
+
+  if (view === 'admin') {
+    return (
+      <div style={styles.container}>
+        <BackgroundDrift />
+        <div style={styles.box}>
+          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px', borderBottom:'1px solid rgba(255,255,255,0.1)', paddingBottom:'12px', flexShrink: 0}}>
+            <h2 style={{color:'#ff003c', margin:0, fontSize: '16px', fontWeight: '800'}}>PAINEL OPERACIONAL</h2>
+            <button onClick={() => setView('home')} style={{background:'none', border:'none', color:'#888', textDecoration:'underline', cursor:'pointer', fontSize:'11px'}}>SAIR</button>
+          </div>
+          {!isAdminUnlocked ? (
+            <div style={styles.contentCenter}>
+              <input type="password" placeholder="Senha Mestra" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+              <button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button>
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection: 'column', height: '100%'}}>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'15px', flexShrink: 0}}>
+                <div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}>
+                  <div style={{fontSize:'10px', color:'#ffd700', marginBottom: '5px'}}>FREE</div>
+                  <div style={{fontSize:'20px', fontWeight:'900'}}>{leads.filter(l => l.prize === 'free').length}/10</div>
+                </div>
+                <div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}>
+                  <div style={{fontSize:'10px', color:'#44aaff', marginBottom: '5px'}}>50% OFF</div>
+                  <div style={{fontSize:'20px', fontWeight:'900'}}>{leads.filter(l => l.prize === 'discount').length}/10</div>
+                </div>
+              </div>
+              <div style={styles.scrollArea}>
+                {leads.map(l => (
+                  <div key={l.id} onClick={() => setSelectedLeadIds(prev => prev.includes(l.id) ? prev.filter(i => i !== l.id) : [...prev, l.id])} style={{display:'flex', gap:'12px', padding:'12px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems: 'center', cursor: 'pointer', backgroundColor: selectedLeadIds.includes(l.id) ? 'rgba(255, 0, 60, 0.05)' : 'transparent', borderRadius: '8px'}}>
+                    {selectedLeadIds.includes(l.id) ? <CheckSquare size={16} color="#ff003c" /> : <Square size={16} color="#555" />}
+                    <div style={{fontSize:'12px'}}><div style={{fontWeight:'700'}}>{l.name}</div><div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'} | {l.selected_flash}</div></div>
+                  </div>
+                ))}
+              </div>
+              <div style={{flexShrink: 0, marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #222'}}>
+                 <button onClick={deleteSelectedLeads} disabled={selectedLeadIds.length === 0} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', height: '40px', fontSize: '12px', opacity: selectedLeadIds.length > 0 ? 1 : 0.3, marginBottom: '10px'}}><Trash2 size={14} /> APAGAR ({selectedLeadIds.length})</button>
+                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}><ShieldCheck size={18} style={{marginRight: '8px'}}/> RESETAR MEU ACESSO</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     );
   }
 
   return (
-    <div style={styles.container}><BackgroundDrift /><div style={styles.box}>
-        {!['home', 'loading', 'admin', 'expired'].includes(view) && <div style={styles.timer}><Clock size={12}/> {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</div>}
-        
+    <div style={styles.container}>
+      <BackgroundDrift />
+      <div style={styles.box}>
+        <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+        {!['home', 'loading', 'admin', 'expired'].includes(view) && (
+          <div style={styles.timer}>
+            <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+          </div>
+        )}
+
         {view === 'home' && (
-            <div style={{...styles.contentCenter, textAlign:'center'}}><Wifi size={40} color="#ff003c" /><h1 style={{fontSize:'36px', fontWeight:'900', color: '#fff'}}>SUMAR</h1><p>Conecte-se para liberar seu cupom iOS.</p><button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5}}>INICIAR CONEXÃO</button><div style={{marginTop: '15px'}}><input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} id="termsCheckIOS"/><label htmlFor="termsCheckIOS" style={{fontSize: '12px', color: '#ccc', marginLeft: '8px'}}>Aceito os termos da promoção</label></div><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button></div>
+          <div style={{...styles.contentCenter, textAlign:'center'}}>
+            <Wifi size={40} color="#ff003c" />
+            <h1 style={{fontSize:'36px', fontWeight:'900', color: '#fff'}}>SUMAR</h1>
+            <div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div>
+            <p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px'}}>Conecte-se à nossa rede para liberar seu acesso iOS.</p>
+            <button onClick={startConnection} disabled={!termsAccepted || isBlocked} style={{...styles.btn, opacity: (termsAccepted && !isBlocked) ? 1 : 0.5}}>{isBlocked ? 'ACESSO BLOQUEADO' : 'INICIAR CONEXÃO'} <ArrowRight size={18}/></button>
+            <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', marginTop: '10px'}}>Ler regulamento completo</button>
+            <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}>
+              <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} id="termsCheckIOS"/>
+              <label htmlFor="termsCheckIOS" style={{fontSize: '12px', color: '#ccc'}}>Li e concordo com os termos</label>
+            </div>
+            {showRegulations && (
+              <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}>
+                <div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}>
+                  <div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3>
+                    <button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px'}}>&times;</button>
+                  </div>
+                  <div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6'}}>
+                    <p>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"...</p>
+                    <p>1. DO PERÍODO: 07/02/2026 a 07/03/2026...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {view === 'loading' && (
-            <div style={{...styles.contentCenter, textAlign:'center'}}><h2>CONECTANDO...</h2><div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden'}}><div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s'}}></div></div><p>{statusMsg}</p></div>
+          <div style={{...styles.contentCenter, textAlign:'center'}}>
+            <h2 style={{fontSize:'20px', fontWeight: '800', marginBottom:'20px', color: '#fff'}}>CONECTANDO...</h2>
+            <div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', margin: '0 auto 15px'}}>
+              <div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s'}}></div>
+            </div>
+            <p style={{fontSize:'12px', color:'#666'}}>{statusMsg}</p>
+          </div>
         )}
 
         {view === 'connection_failed' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}><AlertTriangle size={28} color="#ff003c" /><h1>ERRO DE REDE</h1><p>Não foi possível validar seu Wi-Fi, mas sua vaga foi reservada por 10 minutos!</p><button onClick={determinePrize} style={styles.btn}>VER MINHA PREMIAÇÃO</button></div>
+          <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
+            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+              <AlertTriangle size={28} color="#ff003c" />
+            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff' }}>ERRO DE REDE</h1>
+            <div style={{ fontSize: '13px', color: '#ccc', marginBottom: '15px', lineHeight: '1.4' }}>
+              Não conseguimos validar o seu acesso Wi-Fi.<br /><br />
+              <strong>Ainda bem 🙂</strong><br /><br />
+              Pois se for um dos 10 primeiros a ter feito o scan e validado a promoção, ganhou uma FLASH TATTOO.
+            </div>
+            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' }}>
+              <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Está desconfiado?</p>
+              <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
+                Então veja o nosso Insta, volta e valide.<br />
+                Mas vá rápido, o cronómetro ali em cima não dá segunda oportunidade.
+              </p>
+              <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
+            </div>
+            <button onClick={determinePrize} style={styles.btn}>DESCOBRIR A MINHA POSIÇÃO</button>
+          </div>
         )}
 
         {view === 'result' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}>{prizeType === 'none' ? (<div><h1>😔</h1><p>Vagas esgotadas.</p></div>) : (<div style={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center'}}><div style={{backgroundColor:'#fff', color:'#000', padding:'20px', borderRadius: '16px', fontWeight:'900', width: '90%'}}>{prizeType === 'free' ? 'TATUAGEM GRÁTIS' : '50% DE DESCONTO'}</div><button onClick={() => setView('catalog')} style={{...styles.btn, marginTop: '20px'}}>ESCOLHER ARTE</button></div>)}</div>
+          <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
+            {prizeType === 'none' ? (
+              <div>
+                <h1 style={{ fontSize: '50px' }}>😔</h1>
+                <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial.</p>
+                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONNOSCO</button>
+              </div>
+            ) : (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ marginBottom: '10px', fontSize: '12px', color: '#ff003c', fontWeight: '800', letterSpacing: '2px' }}>CUPÃO LIBERTADO</div>
+                <div style={{ marginBottom: '15px', fontSize: '14px', color: '#fff', fontWeight: '500' }}>
+                  {isLuckyWin ? `Foi o ${participantNumber}º participante` : `Foi o ${participantNumber}º participante e ganhou:`}
+                </div>
+                <div style={{ backgroundColor: '#fff', color: '#000', padding: '20px', borderRadius: '16px', fontWeight: '900', fontSize: '18px', transform: 'rotate(-1deg)', boxShadow: '10px 10px 0px #ff003c', marginBottom: '25px', lineHeight: '1.2', width: '90%' }}>
+                  {isLuckyWin ? (
+                    <>
+                      <div style={{ fontSize: '14px', color: '#ff003c', marginBottom: '8px' }}>QUE SORTE! ALGUÉM DESISTIU DE UMA VAGA E AGORA GANHOU:</div>
+                      {prizeType === 'free' ? 'UMA TATUAGEM GRÁTIS' : '50% DE DESCONTO'}
+                    </>
+                  ) : (
+                    prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO'
+                  )}
+                </div>
+                <button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button>
+              </div>
+            )}
+          </div>
         )}
 
         {view === 'catalog' && (
-          <div style={{display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px'}}><h2 style={{textAlign: 'center'}}>CATÁLOGO</h2><div style={styles.scrollArea}><div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>{CATALOG_IMAGES.map(img => ( <div key={img.id} onClick={() => setSelectedFlash(img)} style={{ border: selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid #333', padding:'4px', borderRadius: '8px' }}><img src={img.src} style={{ width:'100%', borderRadius: '4px' }} /></div> ))}</div></div><button onClick={() => selectedFlash ? setView('form') : alert("Selecione!")} style={styles.btn}>CONTINUAR</button></div>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '900', marginBottom: '15px', textAlign: 'center', color: '#fff' }}>ESCOLHA A SUA ARTE</h2>
+            <div style={styles.scrollArea}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {CATALOG_IMAGES.map(img => {
+                  const isTaken = leads.some(l => l.selected_flash === img.name);
+                  return (
+                    <div key={img.id} onClick={() => !isTaken && setSelectedFlash(img)} style={{ borderRadius: '12px', border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), padding: '6px', background: 'rgba(255,255,255,0.02)', position: 'relative', opacity: isTaken ? 0.3 : 1 }}>
+                      <img src={img.src} alt={img.name} style={{ width: '100%', borderRadius: '8px', filter: isTaken ? 'grayscale(100%)' : 'none' }} />
+                      {isTaken && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>ESGOTADO</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <button onClick={() => selectedFlash ? setView('form') : alert("Selecione uma arte!")} style={styles.btn}>PRÓXIMO PASSO</button>
+          </div>
         )}
 
         {view === 'form' && (
-          <div style={{...styles.contentCenter, textAlign: 'center'}}><h2>IDENTIFICAÇÃO</h2><input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} /><button onClick={handleFinalConfirm} style={styles.btn}>RESGATAR CUPOM</button></div>
+          <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '900', marginBottom: '10px', color: '#fff' }}>RESERVA FINAL</h2>
+            <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px' }}>Indique o seu nome para o agendamento:</p>
+            <input type="text" placeholder="O seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
+            <p style={{ fontSize: '12px', color: '#ff003c', marginBottom: '20px', lineHeight: '1.4', fontWeight: '500' }}>
+              Ao confirmar será direcionado para o WhatsApp do estúdio para validação do cupão.
+            </p>
+            <button onClick={handleFinalConfirm} style={styles.btn}>VALIDAR PROMOÇÃO</button>
+          </div>
         )}
 
         {view === 'success' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}><CheckSquare size={40} color="#00ff64" /><h2>SUCESSO!</h2><p>Vaga garantida. O estúdio aguarda seu contato.</p></div>
+          <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
+            <CheckSquare size={36} color="#00ff64" />
+            <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#00ff64' }}>RESERVADO COM SUCESSO!</h2>
+            <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>A sua vaga foi bloqueada por 24h.</p>
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
