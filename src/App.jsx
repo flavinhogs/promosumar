@@ -389,6 +389,9 @@ function AppIOS() {
   const [splashProgress, setSplashProgress] = useState(0);
   const [splashText, setSplashText] = useState('Autenticando...');
   
+  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
+  const [hasClickedStart, setHasClickedStart] = useState(false);
+  
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
 
@@ -399,7 +402,7 @@ function AppIOS() {
 
   const timerRef = useRef(null);
 
-  // 1. Inicialização de Autenticação (Fundamental para o ID único)
+  // 1. Inicialização de Autenticação
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -417,7 +420,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (Lógica Server-First para Safari)
+  // 2. Monitoramento de Sessão Rígido (Anti-Refresh Safari)
   useEffect(() => {
     if (!user) return;
     
@@ -435,41 +438,39 @@ function AppIOS() {
       setTimeout(() => {
         clearInterval(splashInterval);
         setIsCheckingSession(false);
-      }, 3000);
+      }, 3500);
       return;
     }
 
-    // Consultar o servidor para ver se este UID já tem sessão
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
-      const localActive = safeSession.getItem('sumar_session_active') === 'true';
-      const storageBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-
       if (docSnap.exists()) {
-        // Se o servidor diz que já existe registro, mas a aba atual não está marcada como ativa (refresh/re-acesso)
-        if (!localActive || storageBlocked) {
+        // LÓGICA INFALÍVEL:
+        // Se existe registo no servidor mas o estado 'hasClickedStart' é false,
+        // significa que a página foi recarregada (Refresh), pois o estado resetou.
+        if (!hasClickedStart) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
         }
       }
       
-      // Forçar o loading a durar pelo menos 3 segundos para garantir que o Safari processe os dados
+      // Prolongamos o splash para garantir que o Firebase responda antes de mostrar a Home
       setTimeout(() => {
         clearInterval(splashInterval);
         setSplashProgress(100);
         setIsCheckingSession(false);
-      }, 3000);
+      }, 3500);
     }, (err) => {
       console.error("Monitor error", err);
-      setTimeout(() => setIsCheckingSession(false), 3000);
+      setTimeout(() => setIsCheckingSession(false), 3500);
     });
 
     return () => {
       unsubscribe();
       clearInterval(splashInterval);
     };
-  }, [user, isSafeDevice]);
+  }, [user, isSafeDevice, hasClickedStart]);
 
   // 3. Busca de Leads (Real-time)
   useEffect(() => {
@@ -485,7 +486,6 @@ function AppIOS() {
 
   // 4. Gestão de Views e Bloqueio em Tempo Real
   useEffect(() => {
-    // Bloqueio imediato: se isBlocked for true, a única tela permitida é 'expired' (ou admin/success)
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
@@ -528,17 +528,16 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // MARCAÇÃO NO SERVIDOR - ESSENCIAL PARA O BLOQUEIO DE REFRESH
+    setHasClickedStart(true); // Ativa o marcador volátil na memória
+
     if (!isSafeDevice) {
       try {
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
-          device: 'iOS-Safari'
+          device: 'iOS-Safari-Strict'
         });
-        // Marca a aba atual. No Safari, se houver refresh, isto desaparece, mas o Firestore acima NÃO.
-        safeSession.setItem('sumar_session_active', 'true');
         safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
         console.error("Erro ao blindar sessão no servidor.");
@@ -613,6 +612,7 @@ function AppIOS() {
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); 
     setIsBlocked(false); 
+    setHasClickedStart(false);
     setTimeLeft(600); 
     setView('home');
   };
@@ -651,7 +651,6 @@ function AppIOS() {
     );
   }
 
-  // Renderização prioritária da tela de erro
   if (isBlocked && view !== 'admin' && view !== 'success') {
     return (
       <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
