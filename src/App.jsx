@@ -387,7 +387,7 @@ function AppIOS() {
   // --- CONTROLE DE SEGURANÇA E SPLASH ---
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [splashProgress, setSplashProgress] = useState(0);
-  const [splashText, setSplashText] = useState('Iniciando Handshake...');
+  const [splashText, setSplashText] = useState('Autenticando...');
   
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
@@ -399,7 +399,7 @@ function AppIOS() {
 
   const timerRef = useRef(null);
 
-  // 1. Inicialização de Autenticação
+  // 1. Inicialização de Autenticação (Fundamental para o ID único)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -417,51 +417,52 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (Com Loading Prolongado)
+  // 2. Monitoramento de Sessão Rígido (Lógica Server-First para Safari)
   useEffect(() => {
     if (!user) return;
     
-    // Simulação de Loading Inicial Demorado (UX)
     let progress = 0;
     const splashInterval = setInterval(() => {
-      progress += 2;
-      if (progress <= 100) setSplashProgress(progress);
-      if (progress < 30) setSplashText("Criptografando túnel iOS...");
-      else if (progress < 60) setSplashText("Validando credenciais de rede...");
-      else if (progress < 90) setSplashText("Sincronizando banco de sessões...");
-      else setSplashText("Finalizando verificação segura...");
-    }, 70);
+      progress += 1.5;
+      if (progress <= 95) setSplashProgress(progress);
+      if (progress < 25) setSplashText("A abrir túnel seguro...");
+      else if (progress < 50) setSplashText("A verificar integridade da conta...");
+      else if (progress < 75) setSplashText("A consultar base de dados...");
+      else setSplashText("A finalizar verificação...");
+    }, 50);
 
     if (isSafeDevice) {
       setTimeout(() => {
         clearInterval(splashInterval);
         setIsCheckingSession(false);
-      }, 3500);
+      }, 3000);
       return;
     }
 
+    // Consultar o servidor para ver se este UID já tem sessão
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
       const localActive = safeSession.getItem('sumar_session_active') === 'true';
-      const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+      const storageBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
 
       if (docSnap.exists()) {
-        if (!localActive || hardBlocked) {
+        // Se o servidor diz que já existe registro, mas a aba atual não está marcada como ativa (refresh/re-acesso)
+        if (!localActive || storageBlocked) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
         }
       }
       
-      // Só termina o splash depois de 3.5 segundos E ter a resposta do Firebase
+      // Forçar o loading a durar pelo menos 3 segundos para garantir que o Safari processe os dados
       setTimeout(() => {
         clearInterval(splashInterval);
         setSplashProgress(100);
         setIsCheckingSession(false);
-      }, 3500);
+      }, 3000);
     }, (err) => {
-      console.error("Monitor error");
-      setTimeout(() => setIsCheckingSession(false), 3500);
+      console.error("Monitor error", err);
+      setTimeout(() => setIsCheckingSession(false), 3000);
     });
 
     return () => {
@@ -482,8 +483,9 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Gestão de Views e Bloqueio Automático
+  // 4. Gestão de Views e Bloqueio em Tempo Real
   useEffect(() => {
+    // Bloqueio imediato: se isBlocked for true, a única tela permitida é 'expired' (ou admin/success)
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
@@ -526,18 +528,20 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
+    // MARCAÇÃO NO SERVIDOR - ESSENCIAL PARA O BLOQUEIO DE REFRESH
     if (!isSafeDevice) {
       try {
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
-          device: 'iOS'
+          device: 'iOS-Safari'
         });
+        // Marca a aba atual. No Safari, se houver refresh, isto desaparece, mas o Firestore acima NÃO.
         safeSession.setItem('sumar_session_active', 'true');
         safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
-        console.error("Erro ao blindar sessão.");
+        console.error("Erro ao blindar sessão no servidor.");
       }
     }
     
@@ -575,7 +579,7 @@ function AppIOS() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!customerName || !selectedFlash) return alert("Preencha todos os campos!");
+    if (!customerName || !selectedFlash) return alert("Por favor, preencha o seu nome!");
     try {
       const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
       await addDoc(leadsRef, { 
@@ -591,10 +595,10 @@ function AppIOS() {
       const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
-    } catch (e) { alert("Erro ao guardar dados."); }
+    } catch (e) { alert("Erro ao guardar os dados."); }
   };
 
-  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Senha incorrecta."); } };
+  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
 
   const grantAdminImmunity = async () => {
     safeStorage.removeItem('sumar_promo_blocked'); 
@@ -626,12 +630,12 @@ function AppIOS() {
     } catch (e) { alert("Erro ao apagar."); }
   };
 
-  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("O meu acesso foi bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
+  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("O meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
 
   // --- RENDERS ---
 
-  if (isCheckingSession) {
+  if (isCheckingSession || !user) {
     return (
       <div style={styles.container}>
         <BackgroundDrift />
@@ -639,7 +643,7 @@ function AppIOS() {
           <div style={{width:'40px', height:'40px', border:'3px solid rgba(255,0,60,0.1)', borderTopColor:'#ff003c', borderRadius:'50%', animation:'spin 1s linear infinite', marginBottom: '20px'}}></div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           <div style={{color: '#fff', fontSize: '10px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase'}}>{splashText}</div>
-          <div style={{width:'120px', height:'2px', backgroundColor:'rgba(255,255,255,0.05)', marginTop:'10px', borderRadius:'10px', overflow:'hidden'}}>
+          <div style={{width:'140px', height:'2px', backgroundColor:'rgba(255,255,255,0.05)', marginTop:'15px', borderRadius:'10px', overflow:'hidden'}}>
              <div style={{height:'100%', backgroundColor:'#ff003c', width: `${splashProgress}%`, transition:'width 0.1s'}}></div>
           </div>
         </div>
@@ -647,7 +651,7 @@ function AppIOS() {
     );
   }
 
-  // Se bloqueado, forçamos o render da tela de erro independente de qualquer outra view state
+  // Renderização prioritária da tela de erro
   if (isBlocked && view !== 'admin' && view !== 'success') {
     return (
       <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button><div style={styles.contentCenter}><AlarmClock size={42} color="#ff4444" style={{ margin: '0 auto 10px', display: 'block' }} /><h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '22px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO NEGADO</h1><p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Detectamos um acesso prévio, abandono de sessão ou o tempo limite de segurança foi atingido.</p><p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por questões de segurança da rede e integridade da promoção, sua participação nesta sessão foi invalidada.</p><div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}><button onClick={handleWhatsAppLostOpportunity} style={{ ...styles.btn, backgroundColor: '#25D366', height: '48px' }}><MessageCircle size={18} /> FALAR NO WHATSAPP</button><button onClick={handleInstagramVisit} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button></div><p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p></div></div></div>
@@ -763,7 +767,7 @@ function AppIOS() {
             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' }}>
               <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Está desconfiado?</p>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
-                Então veja o nosso Insta, volte e valide.<br />
+                Então veja o nosso Insta, volta e valide.<br />
                 Mas vá rápido, o cronómetro ali em cima não dá segunda oportunidade.
               </p>
               <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
@@ -826,7 +830,7 @@ function AppIOS() {
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '900', marginBottom: '10px', color: '#fff' }}>RESERVA FINAL</h2>
             <p style={{ fontSize: '13px', color: '#888', marginBottom: '20px' }}>Indique o seu nome para o agendamento:</p>
-            <input type="text" placeholder="O seu Nome" style={styles.input} value={customerName} onChange={e => setSplashText(e.target.value)} />
+            <input type="text" placeholder="O seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} />
             <p style={{ fontSize: '12px', color: '#ff003c', marginBottom: '20px', lineHeight: '1.4', fontWeight: '500' }}>
               Ao confirmar será direcionado para o WhatsApp do estúdio para validação do cupão.
             </p>
