@@ -383,22 +383,9 @@ function AppIOS() {
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
   
-  // NOVO: Estado para detectar navegador não suportado
-  const [isBrowserUnsupported, setIsBrowserUnsupported] = useState(false);
-
   const timerRef = useRef(null);
 
-  // --- DETECÇÃO DE NAVEGADOR (SAFARI) ---
-  useEffect(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    // Detecta Safari puro (excluindo Chrome/Android que também injetam a palavra safari no UA)
-    const isSafari = ua.indexOf('safari') !== -1 && ua.indexOf('chrome') === -1 && ua.indexOf('android') === -1;
-    
-    if (isSafari) {
-      setIsBrowserUnsupported(true);
-    }
-  }, []);
-
+  // ID de Visitante Estável (Mantido Código 1)
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -407,14 +394,13 @@ function AppIOS() {
     return newId;
   });
 
-  // --- LÓGICA DE BLOQUEIO MANTIDA E REFORÇADA ---
+  // --- BLOQUEIOS RÍGIDOS (INTEGRANDO CÓDIGO 2) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
-    if (safeStorage.getItem('sumar_admin_immunity') === 'true') return false;
     const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    const inProgress = safeStorage.getItem('sumar_in_progress') === 'true';
-    return blocked || inProgress;
+    const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
+    return blocked || alreadyHadSession;
   });
 
   const [timeLeft, setTimeLeft] = useState(() => {
@@ -422,37 +408,21 @@ function AppIOS() {
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // --- RENDER DE BLOQUEIO DE NAVEGADOR (SAFARI) ---
-  if (isBrowserUnsupported && !isSafeDevice) {
-    return (
-      <div style={styles.container}>
-        <BackgroundDrift />
-        <div style={styles.box}>
-          <div style={styles.contentCenter}>
-            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              <ShieldAlert size={32} color="#ff003c" />
-            </div>
-            <h1 style={{ color: '#fff', fontWeight: '900', fontSize: '20px', textAlign: 'center', marginBottom: '15px' }}>NAVEGADOR INCOMPATÍVEL</h1>
-            <p style={{ fontSize: '13px', color: '#ccc', textAlign: 'center', lineHeight: '1.6', marginBottom: '20px' }}>
-              Identificamos que você está utilizando o <strong>Safari</strong>. <br /><br />
-              Por questões de segurança e integridade dos cupons, este navegador não está habilitado para carregar esta página.
-            </p>
-            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.2)' }}>
-              <p style={{ fontSize: '12px', color: '#ff003c', fontWeight: '800', textAlign: 'center' }}>
-                SUGESTÃO: Tente abrir este link utilizando o Google Chrome ou o navegador nativo do Instagram.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Proteção de Re-acesso (Código 2)
+  useEffect(() => {
+    if (!isSafeDevice) {
+      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
+        setIsBlocked(true);
+        safeStorage.setItem('sumar_promo_blocked', 'true');
+      }
+    }
+  }, [isSafeDevice]);
 
-  // --- LÓGICA DE TRANSIÇÃO E REDE (CÓDIGO 1) ---
+  // --- CONTROLE DE SPLASH (UX CÓDIGO 1) ---
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [splashProgress, setSplashProgress] = useState(0);
   const [splashText, setSplashText] = useState('Autenticando...');
-
+  
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -467,7 +437,7 @@ function AppIOS() {
   }, []);
 
   useEffect(() => {
-    if (!user || isBrowserUnsupported) return;
+    if (!user) return;
     let progress = 0;
     const splashInterval = setInterval(() => {
       progress += 1.5;
@@ -485,59 +455,182 @@ function AppIOS() {
     }, 3500);
 
     return () => clearInterval(splashInterval);
-  }, [user, isBrowserUnsupported]);
+  }, [user]);
 
-  // Funções de tempo, leads e conexão permanecem as mesmas do Código 1...
+  useEffect(() => {
+    if (!user) return;
+    const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
+    const unsubscribe = onSnapshot(leadsRef, (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setLeads(list);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
+  // Gestão de Views e Tempo
+  useEffect(() => {
+    if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
+        setView('expired'); 
+    }
+    if (timeLeft <= 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
+      safeStorage.setItem('sumar_promo_blocked', 'true');
+      setIsBlocked(true);
+      setView('expired');
+    }
+    if (timeLeft >= 0 && timeLeft <= 600) { 
+        safeStorage.setItem('sumar_timer', timeLeft.toString()); 
+    }
+  }, [timeLeft, view, isBlocked]);
+
+  useEffect(() => {
+    const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
+    if (timerActiveStages.includes(view) && !isBlocked) {
+      if (!safeStorage.getItem('sumar_startTime')) {
+        safeStorage.setItem('sumar_startTime', Date.now().toString());
+        safeStorage.setItem('sumar_already_accessed', 'true');
+        safeSession.setItem('sumar_session_active', 'true');
+      }
+      timerRef.current = setInterval(() => {
+        const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const remaining = 600 - elapsed;
+        if (remaining <= 0) {
+            setTimeLeft(0);
+            setIsBlocked(true);
+            safeStorage.setItem('sumar_promo_blocked', 'true');
+            clearInterval(timerRef.current);
+        } else { setTimeLeft(remaining); }
+      }, 1000);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [view, isBlocked]);
+
+  // --- START CONNECTION (COM VALIDAÇÃO DE NAVEGADOR NO FINAL) ---
   const startConnection = async () => {
     if (!user || isBlocked) return;
-    safeStorage.setItem('sumar_in_progress', 'true'); // Flag de refresh ativa
-    setView('loading');
+
+    safeSession.setItem('sumar_session_started', 'true');
+
+    if (!isSafeDevice) {
+      try {
+        const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
+        await setDoc(sessionDocRef, {
+          started: true,
+          timestamp: serverTimestamp(),
+          device_info: 'iOS-Safari-Strict'
+        });
+      } catch (e) { console.error("Server lock failed"); }
+    }
     
-    // ... restante da lógica de carregamento
+    setView('loading');
+    setLoadingProgress(0);
+    let p = 0;
+    const interval = setInterval(() => {
+      p += Math.random() * 8; 
+      if (p > 100) p = 100;
+      setLoadingProgress(p);
+      
+      if (p < 20) setStatusMsg("Escaneando canais de rede...");
+      else if (p < 40) setStatusMsg("Validando SSL do Estúdio...");
+      else if (p < 60) setStatusMsg("Otimizando gateway de acesso...");
+      else if (p < 80) setStatusMsg("Sincronizando banco de vagas...");
+      else setStatusMsg("Finalizando túnel seguro...");
+
+      if (p >= 100) {
+        clearInterval(interval);
+        
+        // --- VALIDAÇÃO DE NAVEGADOR AQUI (FIM DO LOADING) ---
+        const ua = navigator.userAgent.toLowerCase();
+        const isSafari = ua.indexOf('safari') !== -1 && ua.indexOf('chrome') === -1 && ua.indexOf('android') === -1;
+
+        if (isSafari && !isSafeDevice) {
+          setView('unsupported_browser');
+        } else if (isBlocked) {
+          setView('expired');
+        } else {
+          setView('connection_failed');
+        }
+      }
+    }, 120);
+  };
+
+  // Funções de prêmio, WhatsApp e Admin mantidas do Código 1...
+  const determinePrize = () => {
+    const confirmedFree = leads.filter(l => l.prize === 'free').length;
+    const confirmedDiscount = leads.filter(l => l.prize === 'discount').length;
+    const currentParticipantNum = confirmedFree + confirmedDiscount + 1;
+    setParticipantNumber(currentParticipantNum);
+    if (confirmedFree < 10) { setPrizeType('free'); setIsLuckyWin(currentParticipantNum > 10); }
+    else if (confirmedDiscount < 10) { setPrizeType('discount'); setIsLuckyWin(currentParticipantNum > 20); }
+    else { setPrizeType('none'); setIsLuckyWin(false); }
+    setView('result');
   };
 
   const handleFinalConfirm = async () => {
-    // ... lógica de salvamento
-    safeStorage.removeItem('sumar_in_progress');
-    safeStorage.setItem('sumar_promo_blocked', 'true');
-    setIsBlocked(true);
-    // ... redirect whatsapp
+    if (!customerName || !selectedFlash) return alert("Por favor, informe seu nome e escolha uma arte!");
+    try {
+      const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
+      await addDoc(leadsRef, { 
+        name: customerName, 
+        prize: prizeType, 
+        selected_flash: selectedFlash.name, 
+        participant_n: participantNumber, 
+        created_at: serverTimestamp(),
+        v_id: visitorId
+      });
+      safeStorage.setItem('sumar_promo_blocked', 'true');
+      setIsBlocked(true);
+      const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
+      const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}.`;
+      window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
+      setView('success');
+    } catch (e) { alert("Erro ao salvar dados."); }
   };
 
-  // --- RENDER PADRÃO ---
+  // --- RENDERS ---
+
   if (isCheckingSession || !user) {
     return (
       <div style={styles.container}>
         <BackgroundDrift />
         <div style={{...styles.box, justifyContent: 'center', alignItems: 'center'}}>
-           {/* Splash Screen original aqui */}
+          <div style={{width:'40px', height:'40px', border:'3px solid rgba(255,0,60,0.1)', borderTopColor:'#ff003c', borderRadius:'50%', animation:'spin 1s linear infinite', marginBottom: '20px'}}></div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{color: '#fff', fontSize: '10px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase'}}>{splashText}</div>
+          <div style={{width:'140px', height:'2px', backgroundColor:'rgba(255,255,255,0.05)', marginTop:'15px', borderRadius:'10px', overflow:'hidden'}}>
+             <div style={{height:'100%', backgroundColor:'#ff003c', width: `${splashProgress}%`, transition:'width 0.1s'}}></div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (isBlocked && view !== 'admin' && view !== 'success') {
+  // View de Navegador Não Suportado (Dentro do padrão UX)
+  if (view === 'unsupported_browser') {
     return (
       <div style={styles.container}>
         <BackgroundDrift />
         <div style={styles.box}>
-          {/* Tela de Acesso Negado original aqui */}
+          <div style={styles.contentCenter}>
+             <ShieldAlert size={42} color="#ff003c" style={{ margin: '0 auto 15px', display: 'block' }} />
+             <h1 style={{ color: '#fff', fontWeight: '900', fontSize: '20px', textAlign: 'center', marginBottom: '10px' }}>NAVEGADOR RESTRITO</h1>
+             <p style={{ fontSize: '13px', color: '#ccc', textAlign: 'center', lineHeight: '1.6', marginBottom: '20px' }}>
+                O <strong>Safari</strong> não possui os protocolos necessários para validar sua segurança nesta promoção.
+             </p>
+             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ fontSize: '12px', color: '#ff003c', fontWeight: '800', textAlign: 'center', marginBottom: '10px' }}>COMO RESOLVER:</p>
+                <p style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>
+                  Copie o link e abra-o no <strong>Google Chrome</strong> ou utilize o navegador integrado do Instagram/Facebook.
+                </p>
+             </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div style={styles.container}>
-      <BackgroundDrift />
-      <div style={styles.box}>
-        {/* Renderização das Views (Home, Loading, Catalog, etc) */}
-      </div>
-    </div>
-  );
-}
-  
+
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
