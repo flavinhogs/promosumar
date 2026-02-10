@@ -384,13 +384,7 @@ function AppIOS() {
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
   
-  // --- CONTROLE DE SEGURANÇA E SPLASH ---
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [splashProgress, setSplashProgress] = useState(0);
-  const [splashText, setSplashText] = useState('Autenticando...');
-  
-  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
-  const [hasClickedStart, setHasClickedStart] = useState(false);
+  const timerRef = useRef(null);
 
   // ID de Visitante Estável para contornar limitações do WebKit/Safari em iframes
   const [visitorId] = useState(() => {
@@ -400,23 +394,29 @@ function AppIOS() {
     safeStorage.setItem('sumar_visitor_id', newId);
     return newId;
   });
-  
+
+  // --- BLOQUEIOS RÍGIDOS IOS (INTEGRADOS) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
-  // Inicialização agressiva do bloqueio local
   const [isBlocked, setIsBlocked] = useState(() => {
     const hardBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Se existe marca de início local persistente mas não há marcador de sessão ativa na aba, é sinal de refresh
-    const suspectedRefresh = safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active');
-    return hardBlocked || suspectedRefresh;
+    // Lógica Proposta: Se iniciou a sessão mas o cronômetro não gravou o startTime (Refresh no Loading), bloqueia.
+    const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
+    return hardBlocked || alreadyHadSession;
   });
+
+  // --- CONTROLE DE SEGURANÇA E SPLASH ---
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [splashProgress, setSplashProgress] = useState(0);
+  const [splashText, setSplashText] = useState('Autenticando...');
+  
+  // Marcador Volátil (RAM)
+  const [hasClickedStart, setHasClickedStart] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
-
-  const timerRef = useRef(null);
 
   // 1. Inicialização de Autenticação
   useEffect(() => {
@@ -436,7 +436,17 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (Lógica Server-Side Anti-Desistência e Anti-Refresh)
+  // 2. Reforço de Persistência do Bloqueio
+  useEffect(() => {
+    if (!isSafeDevice) {
+      if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
+        setIsBlocked(true);
+        safeStorage.setItem('sumar_promo_blocked', 'true');
+      }
+    }
+  }, [isSafeDevice]);
+
+  // 3. Monitoramento de Sessão via Servidor (Snapshot)
   useEffect(() => {
     if (!user) return;
     
@@ -462,10 +472,8 @@ function AppIOS() {
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
       const localActive = safeSession.getItem('sumar_session_active') === 'true';
-      const storageBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-
       if (docSnap.exists()) {
-        // Se o servidor tem registro mas esta aba não tem o marcador ativo (hasClickedStart é RAM): BLOQUEIA.
+        // Se o servidor tem registro mas o marcador RAM ou de Sessão local sumiu: BLOQUEIA.
         if (!hasClickedStart && !localActive) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
@@ -478,7 +486,6 @@ function AppIOS() {
         setIsCheckingSession(false);
       }, 3500);
     }, (err) => {
-      console.error("Monitor error", err);
       setTimeout(() => setIsCheckingSession(false), 3500);
     });
 
@@ -488,7 +495,7 @@ function AppIOS() {
     };
   }, [user, isSafeDevice, hasClickedStart, visitorId]);
 
-  // 3. Busca de Leads (Real-time para catálogo)
+  // 4. Busca de Leads
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -500,9 +507,9 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Gestão de Views e Bloqueio em Tempo Real
+  // 5. Gestão de Views e Tempo Esgotado
   useEffect(() => {
-    if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
+    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { 
         setView('expired'); 
     }
     
@@ -517,7 +524,7 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Cronômetro de Segurança (Válido para etapas pós-carregamento)
+  // 6. Cronômetro de Segurança
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -546,16 +553,12 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // Marcador de início na memória RAM (perde se der refresh)
+    // Lógica Proposta: Marca início da tentativa na sessão
+    safeSession.setItem('sumar_session_started', 'true');
     setHasClickedStart(true); 
-    // Marcador de sessão volátil (perde se fechar a aba)
-    safeSession.setItem('sumar_session_active', 'true');
-    // Marcador persistente (fica no aparelho)
-    safeStorage.setItem('sumar_already_accessed', 'true');
 
     if (!isSafeDevice) {
       try {
-        // Grava no Firestore a intenção de início - vinculada ao VisitorID único do aparelho
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
         await setDoc(sessionDocRef, {
           started: true,
@@ -563,7 +566,7 @@ function AppIOS() {
           device_info: 'iOS-Safari-Strict'
         });
       } catch (e) {
-        console.error("Erro ao registrar início de sessão no servidor.");
+        console.error("Server lock failed");
       }
     }
     
@@ -583,14 +586,10 @@ function AppIOS() {
 
       if (p >= 100) {
         clearInterval(interval);
-        // Verifica novamente se foi bloqueado durante o loading por outro evento
-        if (isBlocked) {
-          setView('expired');
-        } else {
-          setView('connection_failed');
-        }
+        if (isBlocked) setView('expired');
+        else setView('connection_failed');
       }
-    }, 100);
+    }, 120);
   };
 
   const determinePrize = () => {
@@ -605,7 +604,7 @@ function AppIOS() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!customerName || !selectedFlash) return alert("Por favor, preencha o seu nome e escolha uma arte!");
+    if (!customerName || !selectedFlash) return alert("Por favor, informe seu nome e escolha uma arte!");
     try {
       const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
       await addDoc(leadsRef, { 
@@ -616,7 +615,6 @@ function AppIOS() {
         created_at: serverTimestamp(),
         v_id: visitorId
       });
-      // Bloqueio permanente após validação concluída
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
@@ -751,6 +749,8 @@ function AppIOS() {
       <BackgroundDrift />
       <div style={styles.box}>
         <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+        
+        {/* Renderização Condicional do Timer */}
         {!['home', 'loading', 'admin', 'expired'].includes(view) && (
           <div style={styles.timer}>
             <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
@@ -779,6 +779,7 @@ function AppIOS() {
                   <div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6'}}>
                     <p>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"...</p>
                     <p>1. DO PERÍODO: 07/02/2026 a 07/03/2026...</p>
+                    <p>Para ler o regulamento completo, por favor, clique no link abaixo no site principal.</p>
                   </div>
                 </div>
               </div>
@@ -825,7 +826,7 @@ function AppIOS() {
               <div>
                 <h1 style={{ fontSize: '50px' }}>😔</h1>
                 <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial no estúdio.</p>
-                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
+                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
               </div>
             ) : (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -842,6 +843,7 @@ function AppIOS() {
                   ) : (
                     prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO'
                   )}
+                  <div style={{fontSize:'12px', marginTop:'8px', color:'#666', fontWeight: '600'}}>(Válido para uma das artes disponíveis a seguir)</div>
                 </div>
                 <button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button>
               </div>
@@ -883,7 +885,9 @@ function AppIOS() {
 
         {view === 'success' && (
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
-            <CheckSquare size={36} color="#00ff64" />
+            <div style={{ backgroundColor: 'rgba(0, 255, 100, 0.1)', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px'}}>
+              <CheckSquare size={36} color="#00ff64" />
+            </div>
             <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#00ff64' }}>RESERVADO COM SUCESSO!</h2>
             <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>Sua vaga foi bloqueada por 24h.</p>
           </div>
@@ -892,6 +896,7 @@ function AppIOS() {
     </div>
   );
 }
+
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
