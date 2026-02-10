@@ -389,10 +389,10 @@ function AppIOS() {
   const [splashProgress, setSplashProgress] = useState(0);
   const [splashText, setSplashText] = useState('Autenticando...');
   
-  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
+  // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página ou fechamento de aba
   const [hasClickedStart, setHasClickedStart] = useState(false);
 
-  // ID de Visitante Estável (Contorna a rotação de UID do Safari em iframes)
+  // ID de Visitante Estável para contornar limitações do WebKit/Safari
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -429,7 +429,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (Lógica Server-Side via VisitorID)
+  // 2. Monitoramento de Sessão Rígido (Lógica Server-Side Anti-Desistência)
   useEffect(() => {
     if (!user) return;
     
@@ -438,8 +438,8 @@ function AppIOS() {
       progress += 1.5;
       if (progress <= 95) setSplashProgress(progress);
       if (progress < 25) setSplashText("Abrindo túnel seguro...");
-      else if (progress < 50) setSplashText("Verificando integridade da conta...");
-      else if (progress < 75) setSplashText("Consultando banco de dados...");
+      else if (progress < 50) setSplashText("Verificando integridade...");
+      else if (progress < 75) setSplashText("Consultando base de dados...");
       else setSplashText("Finalizando verificação...");
     }, 50);
 
@@ -451,6 +451,7 @@ function AppIOS() {
       return;
     }
 
+    // Consultamos o servidor usando o VisitorID (persistente no aparelho)
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
@@ -458,7 +459,10 @@ function AppIOS() {
       const storageBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
 
       if (docSnap.exists()) {
-        if (!hasClickedStart || !localActive || storageBlocked) {
+        // LÓGICA DE BLOQUEIO POR REFRESH OU ABANDONO:
+        // Se existe registro no servidor, mas a memória RAM (hasClickedStart) é falsa
+        // ou a flag de sessão da aba sumiu, significa que o usuário saiu e voltou.
+        if (!hasClickedStart && !localActive) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
         }
@@ -480,7 +484,7 @@ function AppIOS() {
     };
   }, [user, isSafeDevice, hasClickedStart, visitorId]);
 
-  // 3. Busca de Leads (Real-time)
+  // 3. Busca de Leads (Real-time para catálogo)
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -509,12 +513,13 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Cronômetro
+  // 5. Cronômetro de Segurança (Válido para etapas pós-carregamento)
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
       if (!safeStorage.getItem('sumar_startTime')) {
         safeStorage.setItem('sumar_startTime', Date.now().toString());
+        safeSession.setItem('sumar_session_active', 'true');
       }
       timerRef.current = setInterval(() => {
         const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
@@ -536,20 +541,21 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
+    // Marcador de início na memória RAM (perde se der refresh)
     setHasClickedStart(true); 
 
     if (!isSafeDevice) {
       try {
+        // Grava no Firestore a intenção de início - vinculada ao VisitorID
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
-          device_info: 'iOS-Safari-Standard'
+          device_info: 'iOS-Safari-Strict'
         });
         safeSession.setItem('sumar_session_active', 'true');
-        safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
-        console.error("Erro ao registrar sessão.");
+        console.error("Erro ao registrar início de sessão.");
       }
     }
     
@@ -598,6 +604,7 @@ function AppIOS() {
         created_at: serverTimestamp(),
         v_id: visitorId
       });
+      // Bloqueio permanente após vitória
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
@@ -770,13 +777,13 @@ function AppIOS() {
             <div style={{ fontSize: '13px', color: '#ccc', marginBottom: '15px', lineHeight: '1.4' }}>
               Não conseguimos validar o seu acesso Wi-Fi.<br /><br />
               <strong>Ainda bem 🙂</strong><br /><br />
-              Pois se for um dos 10 primeiros a ter feito o scan e validado a promoção, você ganhou uma FLASH TATTOO.
+              Pois se você for um dos 10 primeiros a ter escaneado e validado a promoção, você ganhou uma FLASH TATTOO.
             </div>
             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' }}>
-              <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Está desconfiado?</p>
+              <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Tá desconfiado?</p>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
-                Então confira nosso Insta, volte e valide.<br />
-                Mas vá rápido, o cronômetro ali em cima não dá segunda chance.
+                Então confere nosso Insta, volte e valida.<br />
+                Mas vai rápido, o cronômetro ali em cima não dá segunda chance.
               </p>
               <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
             </div>
@@ -789,8 +796,8 @@ function AppIOS() {
             {prizeType === 'none' ? (
               <div>
                 <h1 style={{ fontSize: '50px' }}>😔</h1>
-                <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial.</p>
-                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Olá, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
+                <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>Lamentamos, mas as vagas esgotaram. Mas ao ligar para nós, ainda pode conseguir uma negociação especial no estúdio.</p>
+                <button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{ ...styles.btn, backgroundColor: '#25D366' }}>FALE CONOSCO</button>
               </div>
             ) : (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -850,14 +857,13 @@ function AppIOS() {
           <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
             <CheckSquare size={36} color="#00ff64" />
             <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#00ff64' }}>RESERVADO COM SUCESSO!</h2>
-            <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>A sua vaga foi bloqueada por 24h.</p>
+            <p style={{ fontSize: '14px', color: '#aaa', margin: '20px 0' }}>Sua vaga foi bloqueada por 24h.</p>
           </div>
         )}
       </div>
     </div>
   );
 }
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
