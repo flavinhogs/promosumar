@@ -367,6 +367,86 @@ function AppAndroid() {
 // ########################### INICIO DO CÓDIGO IOS ###################################
 // ####################################################################################
 
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  writeBatch, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { 
+  Wifi, 
+  Clock, 
+  AlertTriangle, 
+  CheckSquare, 
+  Square, 
+  Trash2, 
+  Settings, 
+  ArrowRight, 
+  ShieldCheck, 
+  MessageCircle, 
+  Instagram, 
+  AlarmClock,
+  Lock
+} from 'lucide-react';
+
+// Inicialização Firebase
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+// Utilitários de Storage Seguros
+const safeStorage = {
+  getItem: (key) => { try { return localStorage.getItem(key); } catch (e) { return null; } },
+  setItem: (key, val) => { try { localStorage.setItem(key, val); } catch (e) { } },
+  removeItem: (key) => { try { localStorage.removeItem(key); } catch (e) { } }
+};
+
+const safeSession = {
+  getItem: (key) => { try { return sessionStorage.getItem(key); } catch (e) { return null; } },
+  setItem: (key, val) => { try { sessionStorage.setItem(key, val); } catch (e) { } },
+  clear: () => { try { sessionStorage.clear(); } catch (e) { } }
+};
+
+const CATALOG_IMAGES = [
+  { id: 1, name: 'Flash 01', src: 'https://images.unsplash.com/photo-1550537687-c91072c4792d?q=80&w=300' },
+  { id: 2, name: 'Flash 02', src: 'https://images.unsplash.com/photo-1590246814883-5785014d3470?q=80&w=300' },
+  { id: 3, name: 'Flash 03', src: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?q=80&w=300' },
+  { id: 4, name: 'Flash 04', src: 'https://images.unsplash.com/photo-1560707303-4e980ce876ad?q=80&w=300' },
+  { id: 5, name: 'Flash 05', src: 'https://images.unsplash.com/photo-1542178243-bc20204b769f?q=80&w=300' },
+  { id: 6, name: 'Flash 06', src: 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?q=80&w=300' }
+];
+
+const BackgroundDrift = () => (
+  <div style={{
+    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+    background: 'radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%)',
+    zIndex: -1, overflow: 'hidden'
+  }}>
+    <div style={{
+      position: 'absolute', width: '200%', height: '200%', top: '-50%', left: '-50%',
+      background: 'url("https://www.transparenttextures.com/patterns/carbon-fibre.png")',
+      opacity: 0.1, animation: 'drift 60s linear infinite'
+    }} />
+    <style>{`@keyframes drift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+  </div>
+);
+
 function AppIOS() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('home'); 
@@ -739,7 +819,7 @@ function AppIOS() {
             </div>
             {showRegulations && (
               <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}>
-                <div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}>
+                <div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80dvh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}>
                   <div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                     <h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3>
                     <button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px'}}>&times;</button>
@@ -778,7 +858,7 @@ function AppIOS() {
             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' }}>
               <p style={{ fontSize: '12px', color: '#fff', fontWeight: '800', marginBottom: '5px' }}>Tá desconfiado?</p>
               <p style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>
-                Então confira nosso Insta, volte e valide.<br />
+                Então confira nosso Insta, volte e valida.<br />
                 Mas vá rápido, o cronômetro ali em cima não dá segunda chance.
               </p>
               <a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{ color: '#ff003c', fontWeight: '800', textDecoration: 'none', fontSize: '14px', borderBottom: '2px solid #ff003c' }}>@TATTOSUMAR</a>
@@ -864,6 +944,102 @@ function AppIOS() {
   );
 }
 
+const styles = {
+  container: {
+    width: '100vw',
+    height: '100dvh', // Usa Dynamic Viewport Height para evitar problemas com barras do Safari
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    color: '#fff',
+    overflow: 'hidden',
+    position: 'relative'
+  },
+  box: {
+    width: '90%',
+    maxWidth: '400px',
+    height: '92dvh', // Ajustado para garantir que botões não fiquem escondidos sob a barra
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backdropFilter: 'blur(10px)',
+    borderRadius: '24px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    padding: '30px',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
+    overflow: 'hidden',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+  },
+  contentCenter: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    width: '100%'
+  },
+  btn: {
+    width: '100%',
+    height: '56px',
+    backgroundColor: '#ff003c',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '16px',
+    fontSize: '15px',
+    fontWeight: '800',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    boxShadow: '0 10px 20px -5px rgba(255, 0, 60, 0.4)',
+    transition: 'transform 0.2s, background-color 0.2s',
+    flexShrink: 0
+  },
+  input: {
+    width: '100%',
+    height: '50px',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '12px',
+    padding: '0 15px',
+    color: '#fff',
+    marginBottom: '15px',
+    fontSize: '14px',
+    boxSizing: 'border-box'
+  },
+  timer: {
+    position: 'absolute',
+    top: '20px',
+    left: '20px',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#ff003c',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    backgroundColor: 'rgba(255, 0, 60, 0.1)',
+    padding: '6px 12px',
+    borderRadius: '20px'
+  },
+  adminToggle: {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    background: 'none',
+    border: 'none',
+    color: '#333',
+    cursor: 'pointer'
+  },
+  scrollArea: {
+    flex: 1,
+    overflowY: 'auto',
+    marginBottom: '15px',
+    paddingRight: '5px'
+  }
+};
+
+export default AppIOS;
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
