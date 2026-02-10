@@ -386,9 +386,8 @@ function AppIOS() {
   const timerRef = useRef(null);
 
   // --- CONTROLE DE SEGURANÇA SERVIDOR (FIREBASE) ---
-  const [sessionRecord, setSessionRecord] = useState(null);
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
-  const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
 
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
@@ -413,24 +412,20 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão via Firestore (Contorna Limitações do Safari)
+  // 2. Monitoramento de Sessão via Firestore (Infalível contra Refresh)
   useEffect(() => {
     if (!user || isSafeDevice) return;
 
-    // Caminho rigoroso conforme Regra 1: public/data/sessions/{uid}
     const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        setSessionRecord(data);
+        // Se o documento existe no banco, o usuário JÁ clicou em iniciar alguma vez.
+        const localSessionActive = safeSession.getItem('sumar_session_active') === 'true';
         
-        // Lógica de Bloqueio: Se existe registro no servidor, mas a sessão local 
-        // (sessionStorage) não existe ou não está ativa, significa que houve refresh ou tentativa de re-acesso.
-        const localActive = safeSession.getItem('sumar_session_active') === 'true';
-        const alreadyFinished = safeStorage.getItem('sumar_promo_blocked') === 'true';
-
-        if (alreadyFinished || !localActive) {
+        // Se ele não tem o marcador de sessão na aba (sessionStorage), 
+        // mas o banco diz que ele já começou, é um Refresh ou Re-acesso.
+        if (!localSessionActive) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
         }
@@ -452,16 +447,19 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Efeito de Bloqueio de View
+  // 4. Efeito de Bloqueio Rígido de View (Removido Home/Loading da exceção)
   useEffect(() => {
-    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { 
+    // Se estiver bloqueado, só pode ver as telas de Expired, Admin ou Success.
+    if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
+
     if (timeLeft <= 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       setView('expired');
     }
+    
     if (timeLeft >= 0 && timeLeft <= 600) { 
         safeStorage.setItem('sumar_timer', timeLeft.toString()); 
     }
@@ -493,8 +491,9 @@ function AppIOS() {
 
   const startConnection = async () => {
     if (!user) return;
+    if (isBlocked) return setView('expired');
 
-    // MARCAÇÃO DE SEGURANÇA: Registra no servidor ANTES de qualquer coisa
+    // MARCAÇÃO DE SEGURANÇA: Registra no servidor ANTES de carregar a UI
     if (!isSafeDevice) {
       try {
         const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
@@ -503,7 +502,7 @@ function AppIOS() {
           timestamp: serverTimestamp(),
           device: 'iOS'
         });
-        // Marca localmente para esta aba específica
+        // Marca a aba atual como ativa. Se der F5, isso aqui some.
         safeSession.setItem('sumar_session_active', 'true');
         safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
@@ -576,6 +575,11 @@ function AppIOS() {
     safeStorage.removeItem('sumar_startTime'); 
     safeStorage.removeItem('sumar_already_accessed'); 
     safeSession.clear();
+    // Limpar registro no Firestore também para reset completo de administrador
+    if (user) {
+      const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+      deleteDoc(sessionDocRef);
+    }
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); 
     setIsBlocked(false); 
@@ -666,7 +670,7 @@ function AppIOS() {
             <h1 style={{fontSize:'36px', fontWeight:'900', color: '#fff'}}>SUMAR</h1>
             <div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div>
             <p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px'}}>Conecte-se à nossa rede para liberar seu acesso iOS.</p>
-            <button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5}}>INICIAR CONEXÃO <ArrowRight size={18}/></button>
+            <button onClick={startConnection} disabled={!termsAccepted || isBlocked} style={{...styles.btn, opacity: (termsAccepted && !isBlocked) ? 1 : 0.5}}>{isBlocked ? 'ACESSO BLOQUEADO' : 'INICIAR CONEXÃO'} <ArrowRight size={18}/></button>
             <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', marginTop: '10px'}}>Ler regulamento completo</button>
             <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}>
               <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} id="termsCheckIOS"/>
