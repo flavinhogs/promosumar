@@ -391,6 +391,15 @@ function AppIOS() {
   
   // Marcador Volátil: Reseta para FALSE em qualquer REFRESH de página
   const [hasClickedStart, setHasClickedStart] = useState(false);
+
+  // ID de Visitante Estável (Contorna a rotação de UID do Safari em iframes)
+  const [visitorId] = useState(() => {
+    const saved = safeStorage.getItem('sumar_visitor_id');
+    if (saved) return saved;
+    const newId = crypto.randomUUID();
+    safeStorage.setItem('sumar_visitor_id', newId);
+    return newId;
+  });
   
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
@@ -420,7 +429,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Monitoramento de Sessão Rígido (Anti-Refresh Safari)
+  // 2. Monitoramento de Sessão Rígido (Lógica Server-Side via VisitorID)
   useEffect(() => {
     if (!user) return;
     
@@ -442,20 +451,22 @@ function AppIOS() {
       return;
     }
 
-    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+    // Consultamos o servidor usando o VisitorID (estável) em vez do UID (volátil no Safari)
+    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
     
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
+      const localActive = safeSession.getItem('sumar_session_active') === 'true';
+      const storageBlocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
+
       if (docSnap.exists()) {
-        // LÓGICA INFALÍVEL:
-        // Se existe registo no servidor mas o estado 'hasClickedStart' é false,
-        // significa que a página foi recarregada (Refresh), pois o estado resetou.
-        if (!hasClickedStart) {
+        // Se o documento existe no servidor, mas o estado local "hasClickedStart" é falso, 
+        // ou se não há marcador de sessão ativa, é um REFRESH ou RE-ACESSO.
+        if (!hasClickedStart || !localActive || storageBlocked) {
           setIsBlocked(true);
           safeStorage.setItem('sumar_promo_blocked', 'true');
         }
       }
       
-      // Prolongamos o splash para garantir que o Firebase responda antes de mostrar a Home
       setTimeout(() => {
         clearInterval(splashInterval);
         setSplashProgress(100);
@@ -470,7 +481,7 @@ function AppIOS() {
       unsubscribe();
       clearInterval(splashInterval);
     };
-  }, [user, isSafeDevice, hasClickedStart]);
+  }, [user, isSafeDevice, hasClickedStart, visitorId]);
 
   // 3. Busca de Leads (Real-time)
   useEffect(() => {
@@ -528,16 +539,18 @@ function AppIOS() {
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    setHasClickedStart(true); // Ativa o marcador volátil na memória
+    setHasClickedStart(true); 
 
     if (!isSafeDevice) {
       try {
-        const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
+        // Grava a sessão vinculada ao VisitorID estável
+        const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
         await setDoc(sessionDocRef, {
           started: true,
           timestamp: serverTimestamp(),
-          device: 'iOS-Safari-Strict'
+          device_info: 'iOS-Safari-Fingerprint'
         });
+        safeSession.setItem('sumar_session_active', 'true');
         safeStorage.setItem('sumar_already_accessed', 'true');
       } catch (e) {
         console.error("Erro ao blindar sessão no servidor.");
@@ -586,7 +599,8 @@ function AppIOS() {
         prize: prizeType, 
         selected_flash: selectedFlash.name, 
         participant_n: participantNumber, 
-        created_at: serverTimestamp() 
+        created_at: serverTimestamp(),
+        v_id: visitorId
       });
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
@@ -605,10 +619,10 @@ function AppIOS() {
     safeStorage.removeItem('sumar_startTime'); 
     safeStorage.removeItem('sumar_already_accessed'); 
     safeSession.clear();
-    if (user) {
-      const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', user.uid);
-      await deleteDoc(sessionDocRef).catch(() => {});
-    }
+    // Remove registro do VisitorID no Firestore para permitir novo teste
+    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'sessions', visitorId);
+    await deleteDoc(sessionDocRef).catch(() => {});
+    
     safeStorage.setItem('sumar_admin_immunity', 'true'); 
     setIsSafeDevice(true); 
     setIsBlocked(false); 
@@ -847,8 +861,7 @@ function AppIOS() {
       </div>
     </div>
   );
-}
-// ####################################################################################
+}// ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
 
