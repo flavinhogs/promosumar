@@ -364,7 +364,7 @@ function AppAndroid() {
 
 
 // ####################################################################################
-// ########################### INICIO DO CÓDIGO IOS ###################################
+// ########################### CÓDIGO ATUALIZADO APP IOS ###############################
 // ####################################################################################
 
 function AppIOS() {
@@ -386,7 +386,7 @@ function AppIOS() {
   
   const timerRef = useRef(null);
 
-  // ID de Visitante Estável para registro no banco (Backup Silencioso)
+  // ID de Visitante Estável
   const [visitorId] = useState(() => {
     const saved = safeStorage.getItem('sumar_visitor_id');
     if (saved) return saved;
@@ -395,12 +395,10 @@ function AppIOS() {
     return newId;
   });
 
-  // --- BLOQUEIOS RÍGIDOS IOS (EXATOS PARÂMETROS DO SEU CÓDIGO) ---
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   
   const [isBlocked, setIsBlocked] = useState(() => {
     const blocked = safeStorage.getItem('sumar_promo_blocked') === 'true';
-    // Parâmetro de Bloqueio 1: Se já tinha sessão iniciada mas não gravou o timer (Sinal de refresh no Loading)
     const alreadyHadSession = safeSession.getItem('sumar_session_started') === 'true' && !safeStorage.getItem('sumar_startTime');
     return blocked || alreadyHadSession;
   });
@@ -410,7 +408,6 @@ function AppIOS() {
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
 
-  // Parâmetro de Bloqueio 2: Reforço de persistência (Bloqueio se já acessou mas a sessão da aba sumiu)
   useEffect(() => {
     if (!isSafeDevice) {
       if (safeStorage.getItem('sumar_already_accessed') === 'true' && !safeSession.getItem('sumar_session_active')) {
@@ -420,12 +417,10 @@ function AppIOS() {
     }
   }, [isSafeDevice]);
 
-  // --- CONTROLE DE SEGURANÇA E SPLASH (UX MANTIDA) ---
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [splashProgress, setSplashProgress] = useState(0);
   const [splashText, setSplashText] = useState('Autenticando...');
   
-  // 1. Inicialização de Autenticação
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -443,7 +438,6 @@ function AppIOS() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Splash Screen de Carregamento Inicial
   useEffect(() => {
     if (!user) return;
     let progress = 0;
@@ -465,7 +459,6 @@ function AppIOS() {
     return () => clearInterval(splashInterval);
   }, [user]);
 
-  // 3. Busca de Leads
   useEffect(() => {
     if (!user) return;
     const leadsRef = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
@@ -477,9 +470,7 @@ function AppIOS() {
     return () => unsubscribe();
   }, [user]);
 
-  // 4. Gestão de Views e Tempo Esgotado
   useEffect(() => {
-    // AJUSTE PARA REFRESH: Se estiver bloqueado, envia para 'expired' independente da tela atual (exceto admin/sucesso)
     if (isBlocked && !['expired', 'admin', 'success'].includes(view)) { 
         setView('expired'); 
     }
@@ -495,7 +486,6 @@ function AppIOS() {
     }
   }, [timeLeft, view, isBlocked]);
 
-  // 5. Cronômetro de Segurança (Sincronizado com Parâmetros de Bloqueio EXATOS)
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
     if (timerActiveStages.includes(view) && !isBlocked) {
@@ -521,10 +511,18 @@ function AppIOS() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
+  // --- NOVA LÓGICA DE CONEXÃO COM VERIFICAÇÃO DE BROWSER ---
   const startConnection = async () => {
     if (!user || isBlocked) return;
 
-    // Parâmetro de Bloqueio 3: Marca início da tentativa na sessão (Anti-Refresh no Loading)
+    // Detecção de Navegadores In-App (Instagram, FB, etc)
+    const isUnsupported = /FBAN|FBAV|Instagram|WhatsApp/.test(navigator.userAgent);
+    
+    if (isUnsupported) {
+      setView('unsupported_browser');
+      return;
+    }
+
     safeSession.setItem('sumar_session_started', 'true');
 
     if (!isSafeDevice) {
@@ -719,7 +717,7 @@ function AppIOS() {
       <div style={styles.box}>
         <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
         
-        {!['home', 'loading', 'admin', 'expired'].includes(view) && (
+        {!['home', 'loading', 'admin', 'expired', 'unsupported_browser'].includes(view) && (
           <div style={styles.timer}>
             <Clock size={12} /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
           </div>
@@ -751,6 +749,24 @@ function AppIOS() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* --- TELA DE NAVEGADOR NÃO SUPORTADO --- */}
+        {view === 'unsupported_browser' && (
+          <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
+            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <Globe size={32} color="#ff003c" />
+            </div>
+            <h1 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff' }}>NAVEGADOR INCOMPATÍVEL</h1>
+            <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '20px', lineHeight: '1.6' }}>
+              O formato atual do seu navegador não suporta os protocolos de segurança do nosso site.
+            </p>
+            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px' }}>
+               <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px' }}>Para ter a experiência completa:</p>
+               <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4' }}>Sugerimos que abra este link diretamente no <strong>Google Chrome</strong> ou <strong>Safari</strong> do seu aparelho.</p>
+            </div>
+            <button onClick={() => window.location.reload()} style={{ ...styles.btn, backgroundColor: '#333' }}>TENTAR NOVAMENTE</button>
           </div>
         )}
 
@@ -863,7 +879,6 @@ function AppIOS() {
     </div>
   );
 }
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
