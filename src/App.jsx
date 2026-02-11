@@ -398,11 +398,11 @@ function AppIOS() {
           </div>
           <h1 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff', textAlign: 'center' }}>NAVEGADOR NÃO SUPORTADO</h1>
           <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '20px', lineHeight: '1.6', textAlign: 'center' }}>
-            Infelizmente o site não suporta esse navegador ou dispositivo para esta promoção.
+            Infelizmente o site não suporta o acesso a essa página.
           </p>
           <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
              <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Sugerimos que:</p>
-             <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Abra este link em outro navegador (como o <strong>Google Chrome</strong>) ou em um dispositivo Android para participar.</p>
+             <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Abra este link em outro navegador ou em outro dispositivo.</p>
           </div>
           
           <button onClick={handleCopy} style={{ ...styles.btn, backgroundColor: copied ? '#00c853' : '#333', boxShadow: 'none' }}>
