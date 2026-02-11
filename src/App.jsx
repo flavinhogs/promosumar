@@ -367,7 +367,7 @@ function AppAndroid() {
 // ########################### CÓDIGO ATUALIZADO APP IOS ###############################
 // ####################################################################################
 
-unction AppIOS() {
+Function AppIOS() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
