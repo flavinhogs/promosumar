@@ -364,14 +364,18 @@ function AppAndroid() {
 
 
 // ####################################################################################
-// ########################### CÓDIGO ATUALIZADO APP IOS ###############################
+// ######################### BLOCO IOS (PÁGINA DE ERRO) ###############################
 // ####################################################################################
-
-Function AppIOS() {
+function AppIOS() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const el = document.createElement('textarea');
+    el.value = window.location.href;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -380,26 +384,29 @@ Function AppIOS() {
     <div style={styles.container}>
       <BackgroundDrift />
       <div style={styles.box}>
-        <div style={{ ...styles.contentCenter, textAlign: 'center' }}>
+        <div style={styles.contentCenter}>
           <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
             <Globe size={32} color="#ff003c" />
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff' }}>NAVEGADOR NÃO SUPORTADO</h1>
-          <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '20px', lineHeight: '1.6' }}>
-            O site não tem suporte a esse navegador.
+          <h1 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 10px 0', color: '#fff', textAlign: 'center' }}>NAVEGADOR NÃO SUPORTADO</h1>
+          <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '20px', lineHeight: '1.6', textAlign: 'center' }}>
+            Infelizmente o site não suporta esse navegador ou dispositivo para esta promoção.
           </p>
-          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px' }}>
-             <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4' }}>Sugerimos que copie o link abaixo e abra em outro navegador (como Google Chrome).</p>
+          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
+             <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Sugerimos que:</p>
+             <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Abra este link em outro navegador (como o <strong>Google Chrome</strong>) ou em um dispositivo Android para participar.</p>
           </div>
-          <button onClick={handleCopy} style={{ ...styles.btn, backgroundColor: copied ? '#00c853' : '#333' }}>
-              {copied ? <CheckSquare size={18} /> : <Copy size={18} />} {copied ? 'COPIADO!' : 'COPIAR LINK'}
+          
+          <button onClick={handleCopy} style={{ ...styles.btn, backgroundColor: copied ? '#00c853' : '#333', boxShadow: 'none' }}>
+            {copied ? <><CheckSquare size={18} /> LINK COPIADO!</> : <><Copy size={18} /> COPIAR LINK</>}
           </button>
+          
+          <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
         </div>
       </div>
     </div>
   );
 }
-
 // ####################################################################################
 // ########################### COMPONENTE DE SELEÇÃO ##################################
 // ####################################################################################
