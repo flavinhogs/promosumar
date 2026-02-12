@@ -133,6 +133,11 @@ function AppAndroid() {
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
 
+  // LOGICA DE BLOQUEIO GLOBAL
+  const [appOpenTimestamp] = useState(Date.now());
+  const [isGlobalLocked, setIsGlobalLocked] = useState(false);
+  const [globalLockTimeLeft, setGlobalLockTimeLeft] = useState(0);
+
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
   const [timeLeft, setTimeLeft] = useState(() => {
@@ -163,6 +168,33 @@ function AppAndroid() {
     });
     return () => unsubscribe();
   }, [user]);
+
+  // LOGICA DE BLOQUEIO GLOBAL INTELIGENTE (17 MINUTOS)
+  useEffect(() => {
+    if (leads.length === 0) return;
+    const checkGlobalLock = () => {
+      const sortedLeads = [...leads].filter(l => l.created_at).sort((a, b) => 
+        (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)
+      );
+      if (sortedLeads.length > 0) {
+        const lastLead = sortedLeads[0];
+        const lastLeadMillis = lastLead.created_at.toMillis();
+        const now = Date.now();
+        const lockDuration = 17 * 60 * 1000;
+        const userArrivedAfterWinner = appOpenTimestamp > lastLeadMillis;
+        const withinLockWindow = (now - lastLeadMillis) < lockDuration;
+        if (userArrivedAfterWinner && withinLockWindow && !isSafeDevice) {
+          setIsGlobalLocked(true);
+          setGlobalLockTimeLeft(Math.ceil((lockDuration - (now - lastLeadMillis)) / 1000));
+        } else {
+          setIsGlobalLocked(false);
+        }
+      }
+    };
+    checkGlobalLock();
+    const interval = setInterval(checkGlobalLock, 1000);
+    return () => clearInterval(interval);
+  }, [leads, appOpenTimestamp, isSafeDevice]);
 
   useEffect(() => {
     if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { setView('expired'); }
@@ -334,7 +366,18 @@ function AppAndroid() {
     return (
       <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
           {view === 'home' ? (
-            <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p><button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5, cursor: termsAccepted ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button><button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button>
+            <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p>
+            
+            {isGlobalLocked ? (
+              <div style={{...styles.btn, backgroundColor: '#333', cursor: 'not-allowed', flexDirection: 'column', height: 'auto', padding: '10px', marginBottom: '10px', marginTop: '20px'}}>
+                <span style={{fontSize: '10px', color: '#ff003c'}}>VAGA EM PROCESSAMENTO</span>
+                <span>DISPONÍVEL EM {Math.floor(globalLockTimeLeft/60)}:{String(globalLockTimeLeft%60).padStart(2,'0')}</span>
+              </div>
+            ) : (
+              <button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5, cursor: termsAccepted ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button>
+            )}
+
+            <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button>
                <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: 'pointer'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: 'pointer', fontWeight: '500'}}>Li e concordo com os termos</label></div>
               {showRegulations && (
                 <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}><div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}><div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3><button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', lineHeight: 1}}>&times;</button></div><div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'left'}}>
@@ -362,7 +405,7 @@ function AppAndroid() {
     <li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.</li>
     <li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li>
     <li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li>
-    <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>   
+    <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>    
         </ul>
 
   <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
@@ -470,7 +513,7 @@ function AppIOS() {
           <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '20px', lineHeight: '1.6', textAlign: 'center' }}>
             Infelizmente o site não suporta o acesso a essa página.
           </p>
-          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)', marginBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
              <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Sugerimos que:</p>
              <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Abra este link em outro navegador ou em outro dispositivo.</p>
           </div>
