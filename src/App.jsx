@@ -370,8 +370,7 @@ function AppAndroid() {
     <li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li>
     <li>4.3. Restrições: <br/>- A promoção é válida apenas para pele limpa (tatuagem nova).<br/>- Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.<br/>- O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.</li>
     <li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão. Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).</li>
-    <li>4.5. Se por qualquer motivo referente a intervenção do cliente a tatuagem precisar de novos sessões ou retoques fica sobre responsabilidade do candidato a cobertura dos custos relacionados a essa nova sessão devido a utilização de novos materiais e tempo do tatuador.</li>
-  </ul>
+      </ul>
 
   <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
   <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
