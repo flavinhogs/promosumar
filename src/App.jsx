@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { getFirestore, doc, onSnapshot, collection, addDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { 
   Settings, CheckSquare, Square, Skull, Flower, Zap, Anchor, Scissors, Wifi, Clock, ArrowRight, AlertTriangle, Trash2, RefreshCcw, LogOut, User, Lock, MessageCircle, ShieldCheck, AlarmClock, Instagram, FileText, Globe, Copy
 } from 'lucide-react';
@@ -31,11 +31,35 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'sumar-promo-default'
 
 // --- CONSTANTES E ESTILOS (COMPARTILHADOS) ---
 const getLeadsCollection = () => collection(db, 'artifacts', appId, 'public', 'data', 'leads');
+const getLockDoc = () => doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global_lock');
 
+// --- BLINDAGEM DE ARMAZENAMENTO (3 CAMADAS) ---
 const safeStorage = {
-  getItem: (key) => { try { return localStorage.getItem(key); } catch (e) { return null; } },
-  setItem: (key, value) => { try { localStorage.setItem(key, value); } catch (e) {} },
-  removeItem: (key) => { try { localStorage.removeItem(key); } catch (e) {} }
+  getItem: (key) => { 
+    try { 
+      let val = localStorage.getItem(key);
+      if (!val) val = sessionStorage.getItem(key);
+      if (!val) {
+        const match = document.cookie.match(new RegExp('(^| )' + key + '=([^;]+)'));
+        if (match) val = match[2];
+      }
+      return val; 
+    } catch (e) { return null; } 
+  },
+  setItem: (key, value) => { 
+    try { 
+      localStorage.setItem(key, value); 
+      sessionStorage.setItem(key, value);
+      document.cookie = key + "=" + value + "; max-age=31536000; path=/";
+    } catch (e) {} 
+  },
+  removeItem: (key) => { 
+    try { 
+      localStorage.removeItem(key); 
+      sessionStorage.removeItem(key);
+      document.cookie = key + "=; max-age=0; path=/";
+    } catch (e) {} 
+  }
 };
 
 const safeSession = {
@@ -132,6 +156,10 @@ function AppAndroid() {
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
+  
+  // Controle de Trava Global
+  const [lastConfirmedAt, setLastConfirmedAt] = useState(0);
+  const [isLockLoaded, setIsLockLoaded] = useState(false);
 
   const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
@@ -156,12 +184,24 @@ function AppAndroid() {
   useEffect(() => {
     if (!user) return;
     const leadsRef = getLeadsCollection();
-    const unsubscribe = onSnapshot(leadsRef, (snap) => {
+    const unsubscribeLeads = onSnapshot(leadsRef, (snap) => {
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
       setLeads(list);
     });
-    return () => unsubscribe();
+
+    const lockRef = getLockDoc();
+    const unsubscribeLock = onSnapshot(lockRef, (snap) => {
+      if (snap.exists()) {
+        setLastConfirmedAt(snap.data().timestamp || 0);
+      }
+      setIsLockLoaded(true);
+    });
+
+    return () => {
+      unsubscribeLeads();
+      unsubscribeLock();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -192,6 +232,12 @@ function AppAndroid() {
     } else { if (timerRef.current) clearInterval(timerRef.current); }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
+
+  // Lógica de Trava Global (Bloqueio de 1 min se estiver na Home/Loading e não for ADM logado)
+  const isGlobalLocked = (Date.now() - lastConfirmedAt) < 60000;
+  // A variável abaixo garante que a pessoa bloqueada por reincidência ignore o aviso de 1 min e caia no bloqueio direto
+  const hasAlreadyAccessedLocally = safeStorage.getItem('sumar_already_accessed') === 'true' || isBlocked;
+  const showLockScreen = isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked && !hasAlreadyAccessedLocally;
 
   const startConnection = () => {
     setView('loading');
@@ -248,7 +294,14 @@ function AppAndroid() {
     }
     try {
       const leadsRef = getLeadsCollection();
+      const lockRef = getLockDoc();
+      
+      // Salva o lead
       await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
+      
+      // Ativa a trava global por 1 minuto para todos os novos acessos
+      await setDoc(lockRef, { timestamp: Date.now() });
+
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
       const msg = `Oi, eu sou ${customerName} e sou o ${participantNumber}º participante. Acabei de validar o meu cupom de ${prizeLabel}! Escolhi a arte: ${selectedFlash.name}. Segue o link da imagem: ${selectedFlash.src}`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
@@ -276,6 +329,34 @@ function AppAndroid() {
 
   const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
+
+  // Tela de Bloqueio Global (Trava de 1 minuto)
+  if (showLockScreen) {
+    return (
+      <div style={styles.container}>
+        <BackgroundDrift />
+        <div style={styles.box}>
+          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+          <div style={styles.contentCenter}>
+            <Wifi size={42} color="#ff003c" style={{ margin: '0 auto 10px', display: 'block' }} />
+            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>LIMITE DE ACESSO</h1>
+            <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>
+              Chegamos ao limite de acessos simultâneos na rede.
+            </p>
+            <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>
+              Para garantir a estabilidade da conexão, estamos limitando novas entradas temporariamente.
+              </p>
+            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.05)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.1)', width: '100%', boxSizing: 'border-box' }}>
+              <p style={{ fontSize: '11px', color: '#ff003c', textAlign: 'center', margin: 0, fontWeight: '700' }}>
+                Tente novamente em alguns minutos.
+              </p>
+            </div>
+            <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Gerenciamento de Tráfego</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'ios_blocked') return <AppIOS />;
   if (view === 'admin') {
@@ -335,7 +416,7 @@ function AppAndroid() {
       <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
           {view === 'home' ? (
             <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p><button onClick={startConnection} disabled={!termsAccepted} style={{...styles.btn, opacity: termsAccepted ? 1 : 0.5, cursor: termsAccepted ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button><button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button>
-               <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: 'pointer'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: 'pointer', fontWeight: '500'}}>Li e concordo com os termos</label></div>
+                <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" disabled={!isLockLoaded} checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: isLockLoaded ? 'pointer' : 'not-allowed'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: isLockLoaded ? 'pointer' : 'not-allowed', fontWeight: '500'}}>Li e concordo com os termos</label></div>
               {showRegulations && (
                 <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}><div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}><div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3><button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', lineHeight: 1}}>&times;</button></div><div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'left'}}>
   <p style={{marginBottom: '15px', fontWeight:'bold'}}>REGULAMENTO OFICIAL – CAMPANHA "FLASH TATTOO SUMAR ESTÚDIO"</p>
@@ -362,7 +443,7 @@ function AppAndroid() {
     <li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.</li>
     <li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li>
     <li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li>
-    <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>   
+    <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>    
         </ul>
 
   <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
@@ -421,7 +502,7 @@ function AppAndroid() {
   return (
     <div style={styles.container}><BackgroundDrift /><div style={styles.box}><div style={styles.timer}><Clock size={12}/> {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</div>
         {view === 'connection_failed' && (
-          <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ backgroundColor: 'rgba(255,  0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px'}}><AlertTriangle size={28} color="#ff003c" /></div><h1 style={{fontSize:'24px', fontWeight: '900', margin:'0 0 10px 0', color: '#fff'}}>ERRO DE REDE</h1><div style={{fontSize:'13px', color:'#ccc', marginBottom:'15px', lineHeight: '1.4'}}>Não conseguimos validar seu acesso Wi-Fi.<br /><br /><strong>Ainda bem 🙂</strong><br /><br />Pois se você for um dos 10 primeiros a ter escaneado e validado a promoção, você ganhou uma FLASH TATTOO.</div><div style={{backgroundColor:'rgba(255, 255, 255, 0.03)', padding:'15px', borderRadius:'16px', border:'1px solid rgba(255,255,255,0.05)', marginBottom:'15px'}}><p style={{fontSize:'12px', color:'#fff', fontWeight: '800', marginBottom:'5px'}}>Tá desconfiado?</p><p style={{fontSize:'13px', color:'#888', marginBottom:'15px'}}>Então confere nosso Insta, volta e valida.<br />Mas vai rápido, o cronômetro ali em cima não dá segunda chance.</p><a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{color: '#ff003c', fontWeight:'800', textDecoration:'none', fontSize:'14px', borderBottom: '2px solid #ff003c'}}>@TATTOSUMAR</a></div><button onClick={determinePrize} style={styles.btn}>DESCOBRIR MINHA COLOCAÇÃO</button></div>
+          <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ backgroundColor: 'rgba(255,  0, 60, 0.1)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px'}}><AlertTriangle size={28} color="#ff003c" /></div><h1 style={{fontSize:'24px', fontWeight: '900', margin:'0 0 10px 0', color: '#fff'}}>ERRO DE REDE</h1><div style={{fontSize:'13px', color:'#ccc', marginBottom:'15px', lineHeight: '1.4'}}>Não conseguimos validar seu acesso Wi-Fi.<br /><br /><strong>Até porque não somos uma empresa de internet. 🙂</strong><br /><br />Mas, se você estiver entre os 10 primeiros a validar o cupom, você ganha uma FLASH TATTOO.</div><div style={{backgroundColor:'rgba(255, 255, 255, 0.03)', padding:'15px', borderRadius:'16px', border:'1px solid rgba(255,255,255,0.05)', marginBottom:'15px'}}><p style={{fontSize:'12px', color:'#fff', fontWeight: '800', marginBottom:'5px'}}>Tá desconfiado?</p><p style={{fontSize:'13px', color:'#888', marginBottom:'15px'}}>Confere o Insta, volta aqui e valida.<br />Mas corre. O cronômetro ali em cima não dá segunda chance.</p><a href="https://www.instagram.com/tattosumar/" target="_blank" rel="noopener noreferrer" style={{color: '#ff003c', fontWeight:'800', textDecoration:'none', fontSize:'14px', borderBottom: '2px solid #ff003c'}}>@TATTOSUMAR</a></div><button onClick={determinePrize} style={styles.btn}>DESCOBRIR MINHA COLOCAÇÃO</button></div>
         )}
         {view === 'result' && (
           <div style={{...styles.contentCenter, textAlign:'center'}}>{prizeType === 'none' ? (<div><h1 style={{fontSize: '50px'}}>😔</h1><p style={{fontSize: '14px', lineHeight: '1.6', marginBottom: '20px'}}>Sentimos muito, as vagas esgotaram. Mas nos chamando por aqui, você ainda pode ter uma negociação especial no estúdio.</p><button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi, perdi a promoção mas ainda quero desconto')}`, '_blank')} style={{...styles.btn, backgroundColor: '#25D366'}}>FALE CONOSCO</button></div>) : (<div style={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center'}}><div style={{marginBottom:'10px', fontSize:'12px', color:'#ff003c', fontWeight: '800', letterSpacing: '2px'}}>CUPOM LIBERADO</div><div style={{marginBottom:'15px', fontSize:'14px', color:'#fff', fontWeight: '500'}}>{isLuckyWin ? (`Você foi o ${participantNumber}º participante`) : (`Você foi o ${participantNumber}º participante e ganhou:`)}</div><div style={{backgroundColor:'#fff', color:'#000', padding:'20px', borderRadius: '16px', fontWeight:'900', fontSize:'18px', transform:'rotate(-1deg)', boxShadow:'10px 10px 0px #ff003c', marginBottom:'25px', lineHeight: '1.2', width: '90%'}}>{isLuckyWin ? (<><div style={{fontSize: '14px', color: '#ff003c', marginBottom: '8px'}}>QUE SORTE ALGUÉM DESISTIU DE UMA DAS VAGAS E AGORA VOCÊ GANHOU:</div>{prizeType === 'free' ? 'UMA TATUAGEM GRÁTIS' : '50% DE DESCONTO'}</>) : (prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO')}<div style={{fontSize:'12px', marginTop:'8px', color:'#666', fontWeight: '600'}}>(Válido para uma das artes disponíveis a seguir)</div></div><button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button></div>)}</div>
