@@ -211,7 +211,7 @@ function AppAndroid() {
       setIsBlocked(true);
       setView('expired');
     }
-    if (timeLeft >= 0 && timeLeft <= 600) { safeStorage.setItem('sumar_timer', timeLeft.toString()); }
+    if (timeLeft >= 0 && timeLeft <= 60) { safeStorage.setItem('sumar_timer', timeLeft.toString()); }
   }, [timeLeft, view, isBlocked]);
 
   useEffect(() => {
@@ -225,7 +225,7 @@ function AppAndroid() {
         const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
         if (start > 0) {
            const elapsed = Math.floor((Date.now() - start) / 1000);
-           const remaining = 600 - elapsed;
+           const remaining = 60 - elapsed;
            setTimeLeft(remaining > 0 ? remaining : 0);
         } else { setTimeLeft(p => (p > 0 ? p - 1 : 0)); }
       }, 1000);
