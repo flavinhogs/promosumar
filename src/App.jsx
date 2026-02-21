@@ -98,6 +98,7 @@ const CATALOG_IMAGES = [
   {id: 27, name: "Flash 27 - SNAKE", src: "https://i.postimg.cc/xq31j3Kh/SNAKE.png/400x400/111/fff?text=SNAKE" },
   {id: 28, name: "Flash 28 - STAR", src: "https://i.postimg.cc/3WFxrFg6/STAR.png/400x400/111/fff?text=STAR" },
   {id: 29, name: "Flash 29 - SUN", src: "https://i.postimg.cc/vc8H4xzN/SUN.png/400x400/111/fff?text=SUN" },
+    {id: 30, name: "Flash 30 - PLANET", src: "https://i.postimg.cc/fWxxdsKK/PLANET.png/400x400/111/fff?text=PLANET" },
 ];
 
 const STENCILS = [
@@ -165,8 +166,30 @@ function AppAndroid() {
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
-    return saved !== null ? parseInt(saved, 10) : 60; 
+    return saved !== null ? parseInt(saved, 10) : 600; 
   });
+
+  // --- LÓGICA DE MASCARAMENTO DE URL (BLOQUEIO DE COMPARTILHAMENTO) ---
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('id');
+    
+    // Se o link tiver o token correto (vindo do QR Code impresso)
+    if (token === 'estudio') {
+      safeSession.setItem('sumar_qr_validated', 'true');
+      // Apaga o token da URL instantaneamente para evitar que a pessoa copie e compartilhe
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Se não tem token, verifica se ele já foi validado nesta sessão ou se é o Admin
+      const isValidated = safeSession.getItem('sumar_qr_validated') === 'true';
+      const isImmune = safeStorage.getItem('sumar_admin_immunity') === 'true';
+      
+      // Se copiou o link limpo (sem token) e enviou para alguém fora do bar, bloqueia
+      if (!isValidated && !isImmune) {
+        setView('qr_required');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -205,13 +228,13 @@ function AppAndroid() {
   }, [user]);
 
   useEffect(() => {
-    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading'].includes(view)) { setView('expired'); }
-    if (timeLeft === 0 && !['home', 'success', 'admin', 'loading', 'expired'].includes(view)) {
+    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading', 'qr_required'].includes(view)) { setView('expired'); }
+    if (timeLeft === 0 && !['home', 'success', 'admin', 'loading', 'expired', 'qr_required'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       setView('expired');
     }
-    if (timeLeft >= 0 && timeLeft <= 60) { safeStorage.setItem('sumar_timer', timeLeft.toString()); }
+    if (timeLeft >= 0 && timeLeft <= 600) { safeStorage.setItem('sumar_timer', timeLeft.toString()); }
   }, [timeLeft, view, isBlocked]);
 
   useEffect(() => {
@@ -225,7 +248,7 @@ function AppAndroid() {
         const start = parseInt(safeStorage.getItem('sumar_startTime') || '0', 10);
         if (start > 0) {
            const elapsed = Math.floor((Date.now() - start) / 1000);
-           const remaining = 60 - elapsed;
+           const remaining = 600 - elapsed;
            setTimeLeft(remaining > 0 ? remaining : 0);
         } else { setTimeLeft(p => (p > 0 ? p - 1 : 0)); }
       }, 1000);
@@ -233,9 +256,9 @@ function AppAndroid() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
-  // Lógica de Trava Global (Bloqueio de 1 min se estiver na Home/Loading e não for ADM logado)
-  const isGlobalLocked = (Date.now() - lastConfirmedAt) < 60000;
-  // A variável abaixo garante que a pessoa bloqueada por reincidência ignore o aviso de 1 min e caia no bloqueio direto
+  // Lógica de Trava Global (Bloqueio de 37 min se estiver na Home/Loading e não for ADM logado)
+  const isGlobalLocked = (Date.now() - lastConfirmedAt) < 2220000;
+  // A variável abaixo garante que a pessoa bloqueada por reincidência ignore o aviso de sobrecarga e caia no bloqueio direto
   const hasAlreadyAccessedLocally = safeStorage.getItem('sumar_already_accessed') === 'true' || isBlocked;
   const showLockScreen = isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked && !hasAlreadyAccessedLocally;
 
@@ -299,7 +322,7 @@ function AppAndroid() {
       // Salva o lead
       await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
       
-      // Ativa a trava global por 1 minuto para todos os novos acessos
+      // Ativa a trava global por 37 minutos para todos os novos acessos
       await setDoc(lockRef, { timestamp: Date.now() });
 
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
@@ -330,7 +353,36 @@ function AppAndroid() {
   const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
   const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
 
-  // Tela de Bloqueio Global (Trava de 1 minuto)
+  // Tela de Bloqueio para quem tentar acessar por Link Direto (Sem ler o QR Code)
+  if (view === 'qr_required') {
+    return (
+      <div style={styles.container}>
+        <BackgroundDrift />
+        <div style={styles.box}>
+          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
+          <div style={styles.contentCenter}>
+            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <Wifi size={32} color="#ff003c" />
+            </div>
+            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO EXTERNO NEGADO</h1>
+            <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>
+              Esta é uma rede privada do Sumar Estúdio.
+            </p>
+            <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>
+              Por medidas de segurança, não permitimos conexões através de links compartilhados externamente.
+            </p>
+            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
+               <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Como conectar?</p>
+               <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Você precisa estar presencialmente no local e escanear o QR Code oficial para entrar na rede.</p>
+            </div>
+            <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de Bloqueio Global (Trava de 37 minutos)
   if (showLockScreen) {
     return (
       <div style={styles.container}>
@@ -339,7 +391,7 @@ function AppAndroid() {
           <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
           <div style={styles.contentCenter}>
             <Wifi size={42} color="#ff003c" style={{ margin: '0 auto 10px', display: 'block' }} />
-            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>LIMITE DE ACESSO</h1>
+            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>SISTEMA SOBRECARREGADO</h1>
             <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>
               Chegamos ao limite de acessos simultâneos na rede.
             </p>
