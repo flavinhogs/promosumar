@@ -165,7 +165,7 @@ function AppAndroid() {
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
-    return saved !== null ? parseInt(saved, 10) : 600; 
+    return saved !== null ? parseInt(saved, 10) : 60; 
   });
 
   useEffect(() => {
