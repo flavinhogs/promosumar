@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, onSnapshot, collection, addDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { getFirestore, doc, onSnapshot, collection, addDoc, setDoc, updateDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { 
-  Settings, CheckSquare, Square, Skull, Flower, Zap, Anchor, Scissors, Wifi, Clock, ArrowRight, AlertTriangle, Trash2, RefreshCcw, LogOut, User, Lock, MessageCircle, ShieldCheck, AlarmClock, Instagram, FileText, Globe, Copy
+  Settings, CheckSquare, Square, Skull, Flower, Zap, Anchor, Scissors, Wifi, Clock, ArrowRight, AlertTriangle, Trash2, RefreshCcw, LogOut, User, Lock, MessageCircle, ShieldCheck, AlarmClock, Instagram, FileText, Globe, Copy, BarChart2
 } from 'lucide-react';
 
 // --- CONFIGURAÇÃO DO FIREBASE (GLOBAL) ---
@@ -32,6 +32,7 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'sumar-promo-default'
 // --- CONSTANTES E ESTILOS (COMPARTILHADOS) ---
 const getLeadsCollection = () => collection(db, 'artifacts', appId, 'public', 'data', 'leads');
 const getLockDoc = () => doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global_lock');
+const getMetricsDoc = () => doc(db, 'artifacts', appId, 'public', 'data', 'config', 'analytics');
 
 // --- BLINDAGEM DE ARMAZENAMENTO (3 CAMADAS) ---
 const safeStorage = {
@@ -248,6 +249,7 @@ function AppAndroid() {
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const [evaluatingAccess, setEvaluatingAccess] = useState(true); 
+  const [metrics, setMetrics] = useState({ home_load: 0, restricted_browser: 0, overload_lock: 0, reentry_attempt: 0 });
   const timerRef = useRef(null);
   
   // Controle de Trava Global
@@ -260,6 +262,16 @@ function AppAndroid() {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
+
+  // Função centralizada para registro de métricas
+  const logMetric = async (field) => {
+    if (!user) return;
+    try {
+      await updateDoc(getMetricsDoc(), { [field]: increment(1) });
+    } catch (e) {
+      await setDoc(getMetricsDoc(), { [field]: 1 }, { merge: true });
+    }
+  };
 
   // --- LÓGICA ATÔMICA DE MASCARAMENTO E PREVENÇÃO DE COMPARTILHAMENTO ---
   useLayoutEffect(() => {
@@ -303,15 +315,35 @@ function AppAndroid() {
     const leadsRef = getLeadsCollection();
     const unsubscribeLeads = onSnapshot(leadsRef, (snap) => {
       const list = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      const now = Date.now();
+      snap.forEach(d => {
+        const data = d.data();
+        let currentStatus = data.status || 'Pendente';
+        // Regra de Exclusão de 24h para leads Pendentes
+        if (currentStatus === 'Pendente' && data.created_at) {
+           const leadTime = data.created_at.toMillis();
+           if ((now - leadTime) > 24 * 60 * 60 * 1000) {
+              currentStatus = 'Expirado';
+           }
+        }
+        list.push({ id: d.id, ...data, status: currentStatus });
+      });
+      list.sort((a, b) => (a.participant_n || 0) - (b.participant_n || 0));
       setLeads(list);
     });
+    
     const lockRef = getLockDoc();
     const unsubscribeLock = onSnapshot(lockRef, (snap) => {
       if (snap.exists()) { setLastConfirmedAt(snap.data().timestamp || 0); }
       setIsLockLoaded(true);
     });
-    return () => { unsubscribeLeads(); unsubscribeLock(); };
+
+    const metricsRef = getMetricsDoc();
+    const unsubscribeMetrics = onSnapshot(metricsRef, (snap) => {
+      if (snap.exists()) setMetrics(snap.data());
+    });
+
+    return () => { unsubscribeLeads(); unsubscribeLock(); unsubscribeMetrics(); };
   }, [user]);
 
   useEffect(() => {
@@ -343,13 +375,29 @@ function AppAndroid() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, isBlocked]);
 
+  // Logging silencioco de Métricas de Tela Principal
+  const hasLoggedHome = useRef(false);
+  useEffect(() => {
+    if (view === 'home' && !hasLoggedHome.current && user && !evaluatingAccess) {
+      logMetric('home_load');
+      hasLoggedHome.current = true;
+    }
+  }, [view, user, evaluatingAccess]);
+
+  const hasLoggedReentry = useRef(false);
+  useEffect(() => {
+    if (view === 'expired' && !hasLoggedReentry.current && user) {
+      logMetric('reentry_attempt');
+      hasLoggedReentry.current = true;
+    }
+  }, [view, user]);
+
   const isGlobalLocked = (Date.now() - lastConfirmedAt) < 2220000;
-  const hasAlreadyAccessedLocally = safeStorage.getItem('sumar_already_accessed') === 'true' || isBlocked;
   
   // HIERARQUIA DE RENDERIZAÇÃO DE BLOQUEIOS IMEDIATOS
-  if (isRestrictedBrowser && !isSafeDevice) return <AppIOS />;
+  if (isRestrictedBrowser && !isSafeDevice) return <AppIOS onLog={() => logMetric('restricted_browser')} />;
   // Trava Global "Cega": Prioridade 2 para todos os utilizadores durante os 37 min
-  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
+  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} onLog={() => logMetric('overload_lock')} />;
   if (view === 'qr_required') return <QRRequiredScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
 
   const startConnection = () => {
@@ -382,10 +430,14 @@ function AppAndroid() {
   };
 
   const determinePrize = () => {
-    const confirmedFree = leads.filter(l => l.prize === 'free').length;
-    const confirmedDiscount = leads.filter(l => l.prize === 'discount').length;
-    const currentParticipantNum = confirmedFree + confirmedDiscount + 1;
+    const activeLeads = leads.filter(l => l.status !== 'Expirado');
+    const confirmedFree = activeLeads.filter(l => l.prize === 'free').length;
+    const confirmedDiscount = activeLeads.filter(l => l.prize === 'discount').length;
+    
+    // O número cronológico é baseado no total real, para não repetir em caso de desistência
+    const currentParticipantNum = leads.length + 1; 
     setParticipantNumber(currentParticipantNum);
+    
     if (confirmedFree < 10) { setPrizeType('free'); setIsLuckyWin(currentParticipantNum > 10); }
     else if (confirmedDiscount < 10) { setPrizeType('discount'); setIsLuckyWin(currentParticipantNum > 20); }
     else { setPrizeType('none'); setIsLuckyWin(false); }
@@ -395,15 +447,15 @@ function AppAndroid() {
   const handleFinalConfirm = async () => {
     if (!customerName) return alert("Por favor, informe seu nome!");
     if (!selectedFlash) return alert("Selecione uma arte!");
-    const takenImages = leads.map(l => l.selected_flash);
-    if (takenImages.includes(selectedFlash.name)) {
+    const activeTakenImages = leads.filter(l => l.status !== 'Expirado').map(l => l.selected_flash);
+    if (activeTakenImages.includes(selectedFlash.name)) {
       alert("Desculpe! Esta arte acabou de ser selecionada por outro participante. Por favor, escolha outra.");
       setView('catalog'); setSelectedFlash(null); return;
     }
     try {
       const leadsRef = getLeadsCollection();
       const lockRef = getLockDoc();
-      await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
+      await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, status: 'Pendente', created_at: serverTimestamp() });
       await setDoc(lockRef, { timestamp: Date.now() });
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
       const msg = `Oi! Sou ${customerName}, ${participantNumber}º da promo. Validei meu cupom de ${prizeLabel}! Arte: ${selectedFlash.name}. Imagem: ${selectedFlash.src}`;
@@ -412,11 +464,25 @@ function AppAndroid() {
     } catch (e) { alert("Erro ao salvar."); }
   };
 
-  const unlockAdmin = () => { if (adminPass === 'SumaR321') { setIsAdminUnlocked(true); } else { alert("Acesso negado."); } };
+  const unlockAdmin = () => { 
+    const hashPass = btoa(adminPass.split('').reverse().join(''));
+    if (hashPass === 'MTIzUmFtdVM=') { 
+      setIsAdminUnlocked(true); 
+    } else { 
+      alert("Acesso negado."); 
+    } 
+  };
+
   const grantAdminImmunity = () => {
     safeStorage.removeItem('sumar_promo_blocked'); safeStorage.removeItem('sumar_timer'); safeStorage.removeItem('sumar_startTime'); safeStorage.removeItem('sumar_already_accessed'); safeSession.removeItem('sumar_sessionActive');
     safeStorage.setItem('sumar_admin_immunity', 'true'); setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
     alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); setView('home');
+  };
+
+  const confirmLead = async (id) => {
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', id), { status: 'Confirmado' });
+    } catch (e) { alert("Erro ao confirmar."); }
   };
 
   const deleteSelectedLeads = async () => {
@@ -429,7 +495,17 @@ function AppAndroid() {
     } catch (e) { alert("Erro ao apagar."); }
   };
 
+  const resetMetrics = async () => {
+    if (!window.confirm("Zerar todas as estatísticas?")) return;
+    try {
+      await setDoc(getMetricsDoc(), { home_load: 0, restricted_browser: 0, overload_lock: 0, reentry_attempt: 0 });
+    } catch (e) { alert("Erro ao zerar estatísticas."); }
+  };
+
   if (view === 'admin') {
+    const activeFreeCount = leads.filter(l => l.prize === 'free' && l.status !== 'Expirado').length;
+    const activeDiscountCount = leads.filter(l => l.prize === 'discount' && l.status !== 'Expirado').length;
+
     return (
       <div style={styles.container}>
         <BackgroundDrift />
@@ -439,9 +515,49 @@ function AppAndroid() {
             <div style={styles.contentCenter}><p style={{fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '15px'}}>Insira a senha.</p><input type="password" placeholder="Senha" style={styles.input} value={adminPass} onChange={e => setAdminPass(e.target.value)} /><button onClick={unlockAdmin} style={styles.btn}>AUTENTICAR</button></div>
           ) : (
             <div style={{display:'flex', flexDirection: 'column', height: '100%'}}>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'15px', flexShrink: 0}}><div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}><div style={{fontSize:'10px', color:'#ffd700', marginBottom: '5px'}}>FREE</div><div style={{fontSize:'20px', fontWeight:'900'}}>{leads.filter(l => l.prize === 'free').length}/10</div></div><div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}><div style={{fontSize:'10px', color:'#44aaff', marginBottom: '5px'}}>50% OFF</div><div style={{fontSize:'20px', fontWeight:'900'}}>{leads.filter(l => l.prize === 'discount').length}/10</div></div></div>
-              <div style={styles.scrollArea}>{leads.map(l => ( <div key={l.id} onClick={() => setSelectedLeadIds(prev => prev.includes(l.id) ? prev.filter(i => i !== l.id) : [...prev, l.id])} style={{display:'flex', gap:'12px', padding:'12px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems: 'center', cursor: 'pointer', backgroundColor: selectedLeadIds.includes(l.id) ? 'rgba(255, 0, 60, 0.05)' : 'transparent', borderRadius: '8px'}}>{selectedLeadIds.includes(l.id) ? <CheckSquare size={16} color="#ff003c" /> : <Square size={16} color="#555" />}<div style={{fontSize:'12px'}}><div style={{fontWeight:'700'}}>{l.name}</div><div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'} | {l.selected_flash}</div></div></div> ))}</div>
-              <div style={{flexShrink: 0, marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #222'}}><button onClick={deleteSelectedLeads} disabled={selectedLeadIds.length === 0} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', height: '40px', fontSize: '12px', opacity: selectedLeadIds.length > 0 ? 1 : 0.3, marginBottom: '10px'}}><Trash2 size={14} /> APAGAR ({selectedLeadIds.length})</button><button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}><ShieldCheck size={18} style={{marginRight: '8px'}}/> ATIVAR IMUNIDADE ADM</button></div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'15px', flexShrink: 0}}>
+                <div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}><div style={{fontSize:'10px', color:'#ffd700', marginBottom: '5px'}}>FREE</div><div style={{fontSize:'20px', fontWeight:'900'}}>{activeFreeCount}/10</div></div>
+                <div style={{background:'rgba(0,0,0,0.3)', padding:'10px', textAlign:'center', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)'}}><div style={{fontSize:'10px', color:'#44aaff', marginBottom: '5px'}}>50% OFF</div><div style={{fontSize:'20px', fontWeight:'900'}}>{activeDiscountCount}/10</div></div>
+              </div>
+              <div style={styles.scrollArea}>
+                {leads.map(l => ( 
+                  <div key={l.id} style={{display:'flex', gap:'12px', padding:'12px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems: 'center', backgroundColor: selectedLeadIds.includes(l.id) ? 'rgba(255, 0, 60, 0.05)' : 'transparent', borderRadius: '8px'}}>
+                    <div onClick={() => setSelectedLeadIds(prev => prev.includes(l.id) ? prev.filter(i => i !== l.id) : [...prev, l.id])} style={{cursor: 'pointer', flexShrink: 0}}>
+                      {selectedLeadIds.includes(l.id) ? <CheckSquare size={16} color="#ff003c" /> : <Square size={16} color="#555" />}
+                    </div>
+                    <div style={{flex: 1, fontSize:'12px'}}>
+                      <div style={{fontWeight:'700', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <span>{l.name}</span>
+                        <span style={{fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: l.status === 'Confirmado' ? 'rgba(0, 200, 83, 0.1)' : l.status === 'Expirado' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(255, 215, 0, 0.1)', color: l.status === 'Confirmado' ? '#00c853' : l.status === 'Expirado' ? '#ff4444' : '#ffd700'}}>
+                          {l.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div style={{color:'#666', fontSize: '10px'}}>{l.prize === 'free' ? 'Grátis' : '50% Off'} | {l.selected_flash}</div>
+                    </div>
+                    {l.status === 'Pendente' && (
+                       <button onClick={(e) => { e.stopPropagation(); confirmLead(l.id); }} style={{background: '#00c853', border: 'none', color: 'white', fontSize: '10px', fontWeight: 'bold', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0}}>
+                         CONFIRMAR
+                       </button>
+                    )}
+                  </div> 
+                ))}
+              </div>
+              
+              <div style={{ borderTop: '1px solid #333', paddingTop: '10px', flexShrink: 0 }}>
+                 <h3 style={{fontSize: '11px', color: '#fff', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: '5px'}}><BarChart2 size={14} color="#aaa"/>MÉTRICAS DE TRÁFEGO</h3>
+                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'5px', fontSize:'10px', color:'#aaa', marginBottom:'10px'}}>
+                    <div>Acesso Home: {metrics?.home_load || 0}</div>
+                    <div>Bloqueio Navegador: {metrics?.restricted_browser || 0}</div>
+                    <div>Bloqueio Trava Lead: {metrics?.overload_lock || 0}</div>
+                    <div>Bloqueio Reacesso: {metrics?.reentry_attempt || 0}</div>
+                 </div>
+                 <button onClick={resetMetrics} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #aaa', color: '#aaa', height: '30px', fontSize: '10px'}}>ZERAR ESTATÍSTICAS</button>
+              </div>
+
+              <div style={{flexShrink: 0, marginTop: '10px', borderTop: '1px solid #222', paddingTop: '10px'}}>
+                <button onClick={deleteSelectedLeads} disabled={selectedLeadIds.length === 0} style={{...styles.btn, backgroundColor:'transparent', border: '1px solid #ff003c', color: '#ff003c', height: '40px', fontSize: '12px', opacity: selectedLeadIds.length > 0 ? 1 : 0.3, marginBottom: '10px'}}><Trash2 size={14} /> APAGAR ({selectedLeadIds.length})</button>
+                <button onClick={grantAdminImmunity} style={{...styles.btn, backgroundColor: '#00c853', height: '45px'}}><ShieldCheck size={18} style={{marginRight: '8px'}}/> ATIVAR IMUNIDADE ADM</button>
+              </div>
             </div>
           )}
         </div>
@@ -496,7 +612,7 @@ function AppAndroid() {
           <div style={{...styles.contentCenter, textAlign:'center'}}>{prizeType === 'none' ? (<div><h1 style={{fontSize: '50px'}}>😔</h1><p style={{fontSize: '14px', lineHeight: '1.6', marginBottom: '20px'}}>Sentimos muito, as vagas esgotaram. Mas nos chamando por aqui, você ainda pode ter uma negociação especial no estúdio.</p><button onClick={() => window.open(`https://wa.me/5581994909686?text=${encodeURIComponent('Oi! Perdi a vaga na promo, mas ainda quero uma tattoo com desconto!')}`, '_blank')} style={{...styles.btn, backgroundColor: '#25D366'}}>FALE CONOSCO</button></div>) : (<div style={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center'}}><div style={{marginBottom:'10px', fontSize:'12px', color:'#ff003c', fontWeight: '800', letterSpacing: '2px'}}>CUPOM LIBERADO</div><div style={{marginBottom:'15px', fontSize:'14px', color:'#fff', fontWeight: '500'}}>{isLuckyWin ? (`Você foi o ${participantNumber}º participante`) : (`Você foi o ${participantNumber}º participante e ganhou:`)}</div><div style={{backgroundColor:'#fff', color:'#000', padding:'20px', borderRadius: '16px', fontWeight:'900', fontSize:'18px', transform:'rotate(-1deg)', boxShadow:'10px 10px 0px #ff003c', marginBottom:'25px', lineHeight: '1.2', width: '90%'}}>{isLuckyWin ? (<><div style={{fontSize: '14px', color: '#ff003c', marginBottom: '8px'}}>QUE SORTE ALGUÉM DESISTIU DE UMA DAS VAGAS E AGORA VOCÊ GANHOU:</div>{prizeType === 'free' ? 'UMA TATUAGEM GRÁTIS' : '50% DE DESCONTO'}</>) : (prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO')}<div style={{fontSize:'12px', marginTop:'8px', color:'#666', fontWeight: '600'}}>(Válido para uma das artes disponíveis a seguir)</div></div><button onClick={() => setView('catalog')} style={styles.btn}>RESGATAR AGORA</button></div>)}</div>
         )}
         {view === 'catalog' && (
-          <div style={{display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box'}}><h2 style={{fontSize:'20px', fontWeight: '900', marginBottom:'15px', textAlign: 'center', color: '#fff', flexShrink: 0}}>ESCOLHA SUA ARTE</h2><div style={styles.scrollArea}><div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>{CATALOG_IMAGES.map(img => { const isTaken = leads.some(l => l.selected_flash === img.name); return ( <div key={img.id} onClick={() => !isTaken && setSelectedFlash(img)} style={{ borderRadius: '12px', border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), padding:'6px', background:'rgba(255,255,255,0.02)', cursor: isTaken ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', position: 'relative', opacity: isTaken ? 0.3 : 1 }}><img src={img.src} alt={img.name} style={{ width:'100%', borderRadius: '8px', filter: isTaken ? 'grayscale(100%)' : (selectedFlash?.id === img.id ? 'none' : 'grayscale(100%) opacity(0.5)') }} />{isTaken && ( <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', zIndex: 2 }}><Lock size={10} /> ESGOTADO</div> )}</div> ); })}</div></div><button onClick={() => selectedFlash ? setView('form') : alert("Selecione uma arte!")} style={styles.btn}>PRÓXIMO PASSO</button></div>
+          <div style={{display: 'flex', flexDirection: 'column', height: '100%', paddingTop: '60px', width: '100%', boxSizing: 'border-box'}}><h2 style={{fontSize:'20px', fontWeight: '900', marginBottom:'15px', textAlign: 'center', color: '#fff', flexShrink: 0}}>ESCOLHA SUA ARTE</h2><div style={styles.scrollArea}><div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>{CATALOG_IMAGES.map(img => { const activeTakenImages = leads.filter(l => l.status !== 'Expirado').map(l => l.selected_flash); const isTaken = activeTakenImages.includes(img.name); return ( <div key={img.id} onClick={() => !isTaken && setSelectedFlash(img)} style={{ borderRadius: '12px', border: isTaken ? '1px solid #222' : (selectedFlash?.id === img.id ? '2px solid #ff003c' : '1px solid rgba(255,255,255,0.1)'), padding:'6px', background:'rgba(255,255,255,0.02)', cursor: isTaken ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', position: 'relative', opacity: isTaken ? 0.3 : 1 }}><img src={img.src} alt={img.name} style={{ width:'100%', borderRadius: '8px', filter: isTaken ? 'grayscale(100%)' : (selectedFlash?.id === img.id ? 'none' : 'grayscale(100%) opacity(0.5)') }} />{isTaken && ( <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#ff003c', color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', zIndex: 2 }}><Lock size={10} /> ESGOTADO</div> )}</div> ); })}</div></div><button onClick={() => selectedFlash ? setView('form') : alert("Selecione uma arte!")} style={styles.btn}>PRÓXIMO PASSO</button></div>
         )}
         {view === 'form' && (
           <div style={{...styles.contentCenter, textAlign: 'center'}}><h2 style={{fontSize:'22px', fontWeight: '900', marginBottom:'10px', color: '#fff'}}>RESERVA FINAL</h2><p style={{fontSize:'13px', color:'#888', marginBottom:'20px'}}>Informe seu nome para o agendamento:</p><input type="text" placeholder="Seu Nome" style={styles.input} value={customerName} onChange={e => setCustomerName(e.target.value)} /><p style={{fontSize:'12px', color:'#ff003c', marginBottom:'20px', lineHeight: '1.4', fontWeight: '500'}}>Ao confirmar você será direcionado ao WhatsApp do estúdio para validação do cupom.<br />Envie a mensagem automática para confirmar a participação.</p><button onClick={handleFinalConfirm} style={styles.btn}>VALIDAR PROMOÇÃO</button></div>
@@ -512,26 +628,29 @@ function AppAndroid() {
 
 // --- TELAS DE BLOQUEIO EXTERNALIZADAS PARA PRIORIZAÇÃO ---
 
-const LeadLockScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
-  <div style={styles.container}>
-    <BackgroundDrift />
-    <div style={styles.box}>
-      <button onClick={onAdmin} style={styles.adminToggle}><Settings size={18}/></button>
-      <div style={styles.contentCenter}>
-        <Wifi size={42} color="#ff003c" style={{ margin: '0 auto 10px', display: 'block' }} />
-        <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>SISTEMA SOBRECARREGADO</h1>
-        <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Chegamos ao limite de acessos simultâneos na rede.</p>
-        <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '10px', textAlign: 'center' }}>Para garantir a estabilidade da conexão, estamos limitando novas entradas temporariamente.</p>
-        <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.05)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.1)', width: '100%', boxSizing: 'border-box' }}>
-          <p style={{ fontSize: '11px', color: '#ff003c', textAlign: 'center', margin: 0, fontWeight: '700' }}>Tente novamente em alguns minutos.</p>
+const LeadLockScreen = ({ onAdmin, onReg, regVisible, onRegClose, onLog }) => {
+  useEffect(() => { if (onLog) onLog(); }, []);
+  return (
+    <div style={styles.container}>
+      <BackgroundDrift />
+      <div style={styles.box}>
+        <button onClick={onAdmin} style={styles.adminToggle}><Settings size={18}/></button>
+        <div style={styles.contentCenter}>
+          <Wifi size={42} color="#ff003c" style={{ margin: '0 auto 10px', display: 'block' }} />
+          <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>SISTEMA SOBRECARREGADO</h1>
+          <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Chegamos ao limite de acessos simultâneos na rede.</p>
+          <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '10px', textAlign: 'center' }}>Para garantir a estabilidade da conexão, estamos limitando novas entradas temporariamente.</p>
+          <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.05)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.1)', width: '100%', boxSizing: 'border-box' }}>
+            <p style={{ fontSize: '11px', color: '#ff003c', textAlign: 'center', margin: 0, fontWeight: '700' }}>Tente novamente em alguns minutos.</p>
+          </div>
+          <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
+          <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Gerenciamento de Tráfego</p>
         </div>
-        <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
-        <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Gerenciamento de Tráfego</p>
       </div>
+      {regVisible && <RegulationModal onClose={onRegClose} />}
     </div>
-    {regVisible && <RegulationModal onClose={onRegClose} />}
-  </div>
-);
+  );
+};
 
 const QRRequiredScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
   <div style={styles.container}>
@@ -558,9 +677,11 @@ const QRRequiredScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
 // ####################################################################################
 // ######################### BLOCO IOS (PÁGINA DE ERRO) ###############################
 // ####################################################################################
-function AppIOS() {
+function AppIOS({ onLog }) {
   const [copied, setCopied] = useState(false);
   const [showRegulations, setShowRegulations] = useState(false);
+
+  useEffect(() => { if (onLog) onLog(); }, []);
 
   const handleCopy = () => {
     const el = document.createElement('textarea');
