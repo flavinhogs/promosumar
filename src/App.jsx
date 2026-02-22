@@ -227,7 +227,12 @@ const RegulationModal = ({ onClose }) => (
 // ####################################################################################
 function AppAndroid() {
   const [user, setUser] = useState(null);
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  
+  // Detecção de Navegadores Instáveis (Safari ou In-App)
+  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+  const isSocialBrowser = /Instagram|FBAN|FBAV/i.test(navigator.userAgent);
+  const isRestrictedBrowser = isSafari || isSocialBrowser;
+
   const [view, setView] = useState('home'); 
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [statusMsg, setStatusMsg] = useState('Iniciando protocolos...');
@@ -242,7 +247,7 @@ function AppAndroid() {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [showRegulations, setShowRegulations] = useState(false); 
   const [termsAccepted, setTermsAccepted] = useState(false); 
-  const [evaluatingAccess, setEvaluatingAccess] = useState(true); // Bloqueio inicial para avaliação
+  const [evaluatingAccess, setEvaluatingAccess] = useState(true); 
   const timerRef = useRef(null);
   
   // Controle de Trava Global
@@ -263,28 +268,21 @@ function AppAndroid() {
     const isImmune = safeStorage.getItem('sumar_admin_immunity') === 'true';
     const isSharedFromSocial = /whatsapp|wa\.me|instagram|facebook/i.test(document.referrer);
     
-    // Se o link tiver o token, avaliamos IMEDIATAMENTE antes da renderização
     if (token === 'estudio') {
-      // Regra 1: Bloquear se vier de compartilhamento social (Link copiado e enviado)
       if (isSharedFromSocial && !isImmune) {
         window.history.replaceState({}, document.title, window.location.pathname);
         setView('qr_required');
-        setEvaluatingAccess(false);
-        return;
+      } else {
+        safeSession.setItem('sumar_qr_validated', 'true');
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
-      
-      // Regra 2: Validar sessão local e limpar URL atômicamente
-      safeSession.setItem('sumar_qr_validated', 'true');
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setEvaluatingAccess(false);
     } else {
-      // Sem token na URL, verificamos histórico local
       const isValidated = safeSession.getItem('sumar_qr_validated') === 'true';
       if (!isValidated && !isImmune) {
         setView('qr_required');
       }
-      setEvaluatingAccess(false);
     }
+    setEvaluatingAccess(false);
   }, []);
 
   useEffect(() => {
@@ -317,14 +315,14 @@ function AppAndroid() {
   }, [user]);
 
   useEffect(() => {
-    if (isBlocked && !['expired', 'admin', 'success', 'home', 'loading', 'qr_required'].includes(view)) { setView('expired'); }
+    // A trava de reincidência agora só será aplicada via startConnection no loading final
     if (timeLeft === 0 && !['home', 'success', 'admin', 'loading', 'expired', 'qr_required'].includes(view)) {
       safeStorage.setItem('sumar_promo_blocked', 'true');
       setIsBlocked(true);
       setView('expired');
     }
     if (timeLeft >= 0 && timeLeft <= 600) { safeStorage.setItem('sumar_timer', timeLeft.toString()); }
-  }, [timeLeft, view, isBlocked]);
+  }, [timeLeft, view]);
 
   useEffect(() => {
     const timerActiveStages = ['connection_failed', 'result', 'catalog', 'form'];
@@ -347,7 +345,11 @@ function AppAndroid() {
 
   const isGlobalLocked = (Date.now() - lastConfirmedAt) < 2220000;
   const hasAlreadyAccessedLocally = safeStorage.getItem('sumar_already_accessed') === 'true' || isBlocked;
-  const showLockScreen = isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked && !hasAlreadyAccessedLocally;
+  
+  // HIERARQUIA DE RENDERIZAÇÃO DE BLOQUEIOS IMEDIATOS
+  if (isRestrictedBrowser && !isSafeDevice) return <AppIOS />;
+  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked && !hasAlreadyAccessedLocally) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
+  if (view === 'qr_required') return <QRRequiredScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
 
   const startConnection = () => {
     setView('loading');
@@ -364,7 +366,7 @@ function AppAndroid() {
       else setStatusMsg("Finalizando túnel seguro...");
       if (p >= 100) {
         clearInterval(interval);
-        if (isIOS) { setView('ios_blocked'); return; }
+        // Verificação Psicológica Final
         const alreadyAccessed = safeStorage.getItem('sumar_already_accessed') === 'true';
         if (alreadyAccessed || isBlocked) {
           safeStorage.setItem('sumar_promo_blocked', 'true');
@@ -426,56 +428,6 @@ function AppAndroid() {
     } catch (e) { alert("Erro ao apagar."); }
   };
 
-  // Tela de Bloqueio 1: QR Required (External Access)
-  if (view === 'qr_required') {
-    return (
-      <div style={styles.container}>
-        <BackgroundDrift />
-        <div style={styles.box}>
-          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
-          <div style={styles.contentCenter}>
-            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}><Wifi size={32} color="#ff003c" /></div>
-            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO EXTERNO NEGADO</h1>
-            <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Esta é uma rede privada do Sumar Estúdio.</p>
-            <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por medidas de segurança, não permitimos conexões através de links compartilhados externamente.</p>
-            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '10px', width: '100%', boxSizing: 'border-box' }}>
-               <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Como conectar?</p>
-               <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Você precisa estar presencialmente no local e escanear o QR Code oficial para entrar na rede.</p>
-            </div>
-            <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
-            <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
-          </div>
-        </div>
-        {showRegulations && <RegulationModal onClose={() => setShowRegulations(false)} />}
-      </div>
-    );
-  }
-
-  // Tela de Bloqueio 2: System Overloaded (Global Lock)
-  if (showLockScreen) {
-    return (
-      <div style={styles.container}>
-        <BackgroundDrift />
-        <div style={styles.box}>
-          <button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
-          <div style={styles.contentCenter}>
-            <Wifi size={42} color="#ff003c" style={{ margin: '0 auto 10px', display: 'block' }} />
-            <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>SISTEMA SOBRECARREGADO</h1>
-            <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Chegamos ao limite de acessos simultâneos na rede.</p>
-            <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '10px', textAlign: 'center' }}>Para garantir a estabilidade da conexão, estamos limitando novas entradas temporariamente.</p>
-            <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.05)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.1)', width: '100%', boxSizing: 'border-box' }}>
-              <p style={{ fontSize: '11px', color: '#ff003c', textAlign: 'center', margin: 0, fontWeight: '700' }}>Tente novamente em alguns minutos.</p>
-            </div>
-            <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
-            <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Gerenciamento de Tráfego</p>
-          </div>
-        </div>
-        {showRegulations && <RegulationModal onClose={() => setShowRegulations(false)} />}
-      </div>
-    );
-  }
-
-  if (view === 'ios_blocked') return <AppIOS />;
   if (view === 'admin') {
     return (
       <div style={styles.container}>
@@ -496,7 +448,6 @@ function AppAndroid() {
     );
   }
 
-  // Tela de Bloqueio 3: Expired (Timeout or Previous access)
   if (view === 'expired') {
     return (
       <div style={styles.container}>
@@ -521,12 +472,11 @@ function AppAndroid() {
     );
   }
 
-  // Home / Loading
   if (view === 'home' || view === 'loading') {
     return (
       <div style={styles.container}><BackgroundDrift /><div style={styles.box}><button onClick={() => setView('admin')} style={styles.adminToggle}><Settings size={18}/></button>
           {view === 'home' ? (
-            <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p><button onClick={startConnection} disabled={!termsAccepted || evaluatingAccess} style={{...styles.btn, opacity: (termsAccepted && !evaluatingAccess) ? 1 : 0.5, cursor: (termsAccepted && !evaluatingAccess) ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button><button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button><div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" disabled={!isLockLoaded || evaluatingAccess} checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: (!isLockLoaded || evaluatingAccess) ? 'not-allowed' : 'pointer'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: (!isLockLoaded || evaluatingAccess) ? 'not-allowed' : 'pointer', fontWeight: '500'}}>Li e concordo com os termos</label></div></div>
+            <div style={{...styles.contentCenter, textAlign:'center'}}><div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px'}}><Wifi size={40} color="#ff003c" style={{ filter: 'drop-shadow(0 0 10px rgba(255,0,60,0.5))'}} /></div><h1 style={{fontSize:'36px', fontWeight:'900', margin:'0 0 5px 0', letterSpacing: '-2px', color: '#fff'}}>SUMAR</h1><div style={{fontSize:'12px', color: '#888', letterSpacing: '2px', marginBottom:'15px'}}>ESTÚDIO DE TATUAGEM</div><p style={{fontSize:'13px', color:'#aaa', marginBottom:'20px', lineHeight: '1.6'}}>Conecte-se à nossa rede para liberar seu acesso.</p><button onClick={startConnection} disabled={!termsAccepted || evaluatingAccess || !isLockLoaded} style={{...styles.btn, opacity: (termsAccepted && !evaluatingAccess && isLockLoaded) ? 1 : 0.5, cursor: (termsAccepted && !evaluatingAccess && isLockLoaded) ? 'pointer' : 'not-allowed', marginBottom: '10px', marginTop: '20px' }}>INICIAR CONEXÃO <ArrowRight size={18}/></button><button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px'}}>Ler regulamento completo</button><div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center'}}><input type="checkbox" disabled={!isLockLoaded || evaluatingAccess} checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} style={{width: '18px', height: '18px', accentColor: '#ff003c', cursor: (!isLockLoaded || evaluatingAccess) ? 'not-allowed' : 'pointer'}} id="termsCheck"/><label htmlFor="termsCheck" style={{fontSize: '12px', color: '#ccc', cursor: (!isLockLoaded || evaluatingAccess) ? 'not-allowed' : 'pointer', fontWeight: '500'}}>Li e concordo com os termos</label></div></div>
           ) : (
             <div style={{...styles.contentCenter, textAlign:'center'}}><h2 style={{fontSize:'20px', fontWeight: '800', marginBottom:'20px', color: '#fff'}}>CONECTANDO...</h2><div style={{width:'80%', height:'8px', backgroundColor:'rgba(255,255,255,0.05)', borderRadius: '10px', marginBottom:'15px', overflow: 'hidden', margin: '0 auto 15px'}}><div style={{height:'100%', backgroundColor:'#ff003c', width: `${loadingProgress}%`, transition:'width 0.2s', boxShadow: '0 0 15px #ff003c'}}></div></div><p style={{fontSize:'12px', color:'#666', fontStyle: 'italic'}}>{statusMsg}</p></div>
           )}
@@ -536,7 +486,6 @@ function AppAndroid() {
     );
   }
 
-  // Outras telas (connection_failed, result, etc)
   return (
     <div style={styles.container}><BackgroundDrift /><div style={styles.box}><div style={styles.timer}><Clock size={12}/> {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</div>
         {view === 'connection_failed' && (
@@ -560,6 +509,50 @@ function AppAndroid() {
   );
 }
 
+// --- TELAS DE BLOQUEIO EXTERNALIZADAS PARA PRIORIZAÇÃO ---
+
+const LeadLockScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
+  <div style={styles.container}>
+    <BackgroundDrift />
+    <div style={styles.box}>
+      <button onClick={onAdmin} style={styles.adminToggle}><Settings size={18}/></button>
+      <div style={styles.contentCenter}>
+        <Wifi size={42} color="#ff003c" style={{ margin: '0 auto 10px', display: 'block' }} />
+        <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>SISTEMA SOBRECARREGADO</h1>
+        <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Chegamos ao limite de acessos simultâneos na rede.</p>
+        <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '10px', textAlign: 'center' }}>Para garantir a estabilidade da conexão, estamos limitando novas entradas temporariamente.</p>
+        <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.05)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.1)', width: '100%', boxSizing: 'border-box' }}>
+          <p style={{ fontSize: '11px', color: '#ff003c', textAlign: 'center', margin: 0, fontWeight: '700' }}>Tente novamente em alguns minutos.</p>
+        </div>
+        <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
+        <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Gerenciamento de Tráfego</p>
+      </div>
+    </div>
+    {regVisible && <RegulationModal onClose={onRegClose} />}
+  </div>
+);
+
+const QRRequiredScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
+  <div style={styles.container}>
+    <BackgroundDrift />
+    <div style={styles.box}>
+      <button onClick={onAdmin} style={styles.adminToggle}><Settings size={18}/></button>
+      <div style={styles.contentCenter}>
+        <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}><Wifi size={32} color="#ff003c" /></div>
+        <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>ACESSO EXTERNO NEGADO</h1>
+        <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Esta é uma rede privada do Sumar Estúdio.</p>
+        <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>Por medidas de segurança, não permitimos conexões através de links compartilhados externamente.</p>
+        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '10px', width: '100%', boxSizing: 'border-box' }}>
+           <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Como conectar?</p>
+           <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Você precisa estar presencialmente no local e escanear o QR Code oficial para entrar na rede.</p>
+        </div>
+        <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
+        <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
+      </div>
+    </div>
+    {regVisible && <RegulationModal onClose={onRegClose} />}
+  </div>
+);
 
 // ####################################################################################
 // ######################### BLOCO IOS (PÁGINA DE ERRO) ###############################
@@ -570,7 +563,7 @@ function AppIOS() {
 
   const handleCopy = () => {
     const el = document.createElement('textarea');
-    el.value = window.location.href;
+    el.value = window.location.href; // Copia a URL atual com o Token
     document.body.appendChild(el);
     el.select();
     document.execCommand('copy');
