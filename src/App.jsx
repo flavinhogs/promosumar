@@ -348,7 +348,8 @@ function AppAndroid() {
   
   // HIERARQUIA DE RENDERIZAÇÃO DE BLOQUEIOS IMEDIATOS
   if (isRestrictedBrowser && !isSafeDevice) return <AppIOS />;
-  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked && !hasAlreadyAccessedLocally) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
+  // Trava Global "Cega": Prioridade 2 para todos os utilizadores durante os 37 min
+  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
   if (view === 'qr_required') return <QRRequiredScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
 
   const startConnection = () => {
@@ -366,7 +367,7 @@ function AppAndroid() {
       else setStatusMsg("Finalizando túnel seguro...");
       if (p >= 100) {
         clearInterval(interval);
-        // Verificação Psicológica Final
+        // Verificação Psicológica Final (após os 37 min ou em refresh)
         const alreadyAccessed = safeStorage.getItem('sumar_already_accessed') === 'true';
         if (alreadyAccessed || isBlocked) {
           safeStorage.setItem('sumar_promo_blocked', 'true');
