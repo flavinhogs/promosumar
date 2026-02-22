@@ -488,8 +488,7 @@ function AppAndroid() {
       <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
         <li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio, sendo o acesso estritamente limitado à leitura do QR Code oficial presencialmente.</li>
         <li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li>
-        {/* AJUSTE TESTE 3: Removido espaço após forma: */}
-        <li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma:<br/><br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li>
+        <li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma:<br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li>
         <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
         <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
         <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
