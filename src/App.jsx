@@ -149,18 +149,16 @@ function AppAndroid() {
 
       // Se o link tiver o token correto (vindo do QR Code impresso)
       if (token === 'estudio') {
-        safeSession.setItem('sumar_qr_validated', 'true');
         // Apaga o token da URL instantaneamente
         window.history.replaceState({}, document.title, window.location.pathname);
         return 'home';
       }
 
-      // Se não tem token, verifica se ele já foi validado nesta aba ou se é o Admin
-      const isValidated = safeSession.getItem('sumar_qr_validated') === 'true';
-      if (!isValidated && !isImmune) {
+      // Se não tem token (ex: copiou o link limpo ou DEU REFRESH), verifica se é o Admin
+      if (!isImmune) {
         return 'qr_required'; // Bloqueia imediatamente
       }
-      return 'home'; // Permite se já validou antes
+      return 'home'; // Permite se for o Admin
     } catch (e) {
       return 'home';
     }
@@ -377,7 +375,7 @@ function AppAndroid() {
             </p>
             <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
                <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Como conectar?</p>
-               <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Você precisa estar presencialmente no local e escanear o QR Code oficial para entrar na rede.</p>
+               <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>A rede exige validação presencial. Apenas dispositivos localizados fisicamente dentro da área de cobertura do estabelecimento conseguem autenticar o acesso.</p>
             </div>
             <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
           </div>
