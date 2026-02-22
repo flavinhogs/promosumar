@@ -140,7 +140,7 @@ const BackgroundDrift = () => (
 // ########################### INICIO DO CÓDIGO ANDROID ###############################
 // ####################################################################################
 function AppAndroid() {
-  // --- LÓGICA DE MASCARAMENTO DE URL (BLINDAGEM SÍNCRONA ANTES DE CARREGAR A TELA) ---
+  // --- LÓGICA DE MASCARAMENTO DE URL (BLINDAGEM SÍNCRONA AGRESSIVA) ---
   const checkInitialAccess = () => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -149,8 +149,8 @@ function AppAndroid() {
 
       // Se o link tiver o token correto (vindo do QR Code impresso)
       if (token === 'estudio') {
-        // Apaga o token da URL instantaneamente para não deixar rastro no histórico ou compartilhamento
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Substitui por uma Hash Falsa para mascarar o link real na barra de endereços
+        window.history.replaceState({}, document.title, window.location.pathname + "#/network-auth-v3-active");
         return 'home';
       }
 
@@ -158,7 +158,7 @@ function AppAndroid() {
       if (!isImmune) {
         return 'qr_required'; // Bloqueia imediatamente
       }
-      return 'home'; // Permite se for o Admin
+      return 'home'; 
     } catch (e) {
       return 'home';
     }
@@ -182,6 +182,19 @@ function AppAndroid() {
   const [termsAccepted, setTermsAccepted] = useState(false); 
   const timerRef = useRef(null);
   
+  // Vigia agressivo da URL (expulsa se alguém tentar injetar parâmetros manualmente ou voltar no histórico)
+  useEffect(() => {
+    const monitorURL = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isImmune = safeStorage.getItem('sumar_admin_immunity') === 'true';
+      if (urlParams.has('id') && urlParams.get('id') !== 'estudio' && !isImmune) {
+        setView('qr_required');
+      }
+    };
+    window.addEventListener('popstate', monitorURL);
+    return () => window.removeEventListener('popstate', monitorURL);
+  }, []);
+
   // Controle de Trava Global
   const [lastConfirmedAt, setLastConfirmedAt] = useState(0);
   const [isLockLoaded, setIsLockLoaded] = useState(false);
@@ -352,9 +365,6 @@ function AppAndroid() {
     } catch (e) { alert("Erro ao apagar."); }
   };
 
-  const handleWhatsAppLostOpportunity = () => { window.open(`https://wa.me/5581994909686?text=${encodeURIComponent("Meu acesso está bloqueado, mas ainda quero uma tattoo")}`, '_blank'); };
-  const handleInstagramVisit = () => { window.open(`https://www.instagram.com/tattosumar/`, '_blank'); };
-
   // --- COMPONENTE DO REGULAMENTO (Variável Global do Render) ---
   const RegulationModal = showRegulations && (
     <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px' }}><div style={{backgroundColor: '#121212', width: '90%', maxWidth: '380px', maxHeight: '80vh', borderRadius: '16px', border: '1px solid #333', display: 'flex', flexDirection: 'column', color: '#ddd'}}><div style={{padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3 style={{margin: 0, color: '#ff003c', fontSize: '15px', fontWeight: '800'}}>REGULAMENTO OFICIAL</h3><button onClick={() => setShowRegulations(false)} style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', lineHeight: 1}}>&times;</button></div><div style={{padding: '20px', overflowY: 'auto', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'left'}}>
@@ -495,7 +505,7 @@ function AppAndroid() {
     );
   }
 
-  if (view === 'ios_blocked') return <AppIOS />;
+  if (view === 'ios_blocked') return <AppIOS RegulationModal={RegulationModal} setShowRegulations={setShowRegulations} />;
   if (view === 'admin') {
     return (
       <div style={styles.container}>
@@ -596,12 +606,12 @@ function AppAndroid() {
 // ####################################################################################
 // ######################### BLOCO IOS (PÁGINA DE ERRO) ###############################
 // ####################################################################################
-function AppIOS() {
+function AppIOS({ RegulationModal, setShowRegulations }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    // Garante que o link copiado esteja limpo, removendo qualquer parâmetro após o "?"
-    const cleanUrl = window.location.href.split('?')[0];
+    // Garante que o link copiado esteja limpo e sem fragmentos de autenticação
+    const cleanUrl = window.location.href.split('?')[0].split('#')[0];
     const el = document.createElement('textarea');
     el.value = cleanUrl;
     document.body.appendChild(el);
@@ -633,9 +643,11 @@ function AppIOS() {
             {copied ? <><CheckSquare size={18} /> LINK COPIADO!</> : <><Copy size={18} /> COPIAR LINK</>}
           </button>
           
-          <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
+          <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '15px'}}>Ler regulamento completo</button>
+          <p style={{ fontSize: '10px', color: '#444', marginTop: '15px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
         </div>
       </div>
+      {RegulationModal}
     </div>
   );
 }
