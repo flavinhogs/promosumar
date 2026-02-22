@@ -476,66 +476,69 @@ function AppAndroid() {
   
   <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>1. DO PERÍODO E VIGÊNCIA</h4>
   <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>1.1. A campanha terá início em 10/02/2026 e encerramento previsto para 10/03/2026.</li>
-    <li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li>
-  </ul>
+   <li>1.1. A campanha terá início em 10/02/2026 e encerramento previsto para 10/03/2026.</li>
+<li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>2. DA MECÂNICA DA PARTICIPAÇÃO</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio.</li>
-    <li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li>
-    <li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma: <br/><br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li>
-    <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
-    <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
-    <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
-  </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>2. DA MECÂNICA DA PARTICIPAÇÃO</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio, sendo o acesso estritamente limitado à leitura do QR Code oficial presencialmente.</li>
+<li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li>
+<li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma:<br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li>
+<li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
+<li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
+<li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
+<li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos..</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.</li>
-    <li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li>
-    <li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li>
-    <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>    
-        </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.</li>
+<li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li>
+<li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li>
+<li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li>
-    <li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li>
-    <li>4.3. Restrições: <br/>- A promoção é válida apenas para pele limpa (tatuagem nova).<br/>- Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.<br/>- O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.</li>
-    <li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão. Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).</li>
-      </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li>
+<li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elements, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li>
+<li>4.3. Restrições: <br/>- A promoção é válida apenas para pele limpa (tatuagem nova).<br/>- Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.<br/>- O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.</li>
+<li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão. Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li>
-    <li>5.2. Prazos:<br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br/>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
-    <li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados). Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
-  </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li>
+<li>5.2. Prazos:<br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br/>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
+<li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados). Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>6.1. O não comparecimento na data e hora agendadas, sem aviso prévio ou justificativa aceita pelo estúdio, resultará no cancelamento automático do prêmio.</li>
-    <li>6.2. Em caso de cancelamento por não comparecimento, a vaga será reaberta no sistema para um novo participante, mantendo a regra de distribuição dos prêmios (10 grátis / 10 descontos).</li>
-  </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>6.1. O não comparecimento na data e hora agendadas, sem aviso prévio ou justificativa aceita pelo estúdio, resultará no cancelamento automático do prêmio.</li>
+<li>6.2. Em caso de cancelamento por não comparecimento, a vaga será reaberta no sistema para um novo participante, mantendo a regra de distribuição dos prêmios (10 grátis / 10 descontos).</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>7. DO DIREITO DE USO DE IMAGEM</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>7.1. Ao participar desta campanha e realizar o procedimento, o(a) participante autoriza, de forma gratuita, irrevogável, irretratável e universal, o uso de sua imagem e voz, bem como das imagens da tatuagem realizada (antes, durante e depois do procedimento).</li>
-    <li>7.2. O Sumar Estúdio fica autorizado a utilizar o material captado para fins de divulgação, publicidade, composição de portfólio e marketing em quaisquer meios de comunicação, incluindo, mas não se limitando a: redes sociais (Instagram, TikTok, Facebook, etc.), site oficial, materiais impressos e exposições.</li>
-    <li>7.3. A presente autorização é concedida a título gratuito, não gerando ao participante qualquer direito a remuneração, indenização, royalties ou compensação financeira de qualquer natureza pelo uso de sua imagem associada ao trabalho artístico do Estúdio.</li>
-  </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>7. DO DIREITO DE USO DE IMAGEM</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>7.1. Ao participar desta campanha e realizar o procedimento, o(a) participante autoriza, de forma gratuita, irrevogável, irretratável e universal, o uso de sua imagem e voz, bem como das imagens da tatuagem realizada (antes, durante e depois do procedimento).</li>
+<li>7.2. O Sumar Estúdio fica autorizado a utilizar o material captado para fins de divulgação, publicidade, composição de portfólio e marketing em quaisquer meios de comunicação, incluindo, mas não se limitando a: redes sociais (Instagram, TikTok, Facebook, etc.), site oficial, materiais impressos e exposições.</li>
+<li>7.3. A presente autorização é concedida a título gratuito, não gerando ao participante qualquer direito a remuneração, indenização, royalties ou compensação financeira de qualquer natureza pelo uso de sua imagem associada ao trabalho artístico do Estúdio.</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4>
-  <p style={{margin: '5px 0'}}>Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</p>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>8.1. Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</li>
+</ul>
 
-  <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
-  <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-    <li>9.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li>
-    <li>9.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado junto ao estúdio terão direito ao prêmio.</li>
-    <li>9.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
-    <li>9.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
-  </ul>
+<h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
+<ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+<li>9.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li>
+<li>9.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado junto ao estúdio terão direito ao prêmio.</li>
+<li>9.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
+<li>9.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
+</ul>
 
   <div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>
     Sumar Estúdio<br/>Recife/PE
