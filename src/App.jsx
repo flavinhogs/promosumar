@@ -98,7 +98,7 @@ const CATALOG_IMAGES = [
   {id: 27, name: "Flash 27 - SNAKE", src: "https://i.postimg.cc/xq31j3Kh/SNAKE.png/400x400/111/fff?text=SNAKE" },
   {id: 28, name: "Flash 28 - STAR", src: "https://i.postimg.cc/3WFxrFg6/STAR.png/400x400/111/fff?text=STAR" },
   {id: 29, name: "Flash 29 - SUN", src: "https://i.postimg.cc/vc8H4xzN/SUN.png/400x400/111/fff?text=SUN" },
-    {id: 30, name: "Flash 30 - PLANET", src: "https://i.postimg.cc/fWxxdsKK/PLANET.png/400x400/111/fff?text=PLANET" },
+  {id: 30, name: "Flash 30 - PLANET", src: "https://i.postimg.cc/fWxxdsKK/PLANET.png/400x400/111/fff?text=PLANET" },
 ];
 
 const STENCILS = [
@@ -149,7 +149,7 @@ function AppAndroid() {
 
       // Se o link tiver o token correto (vindo do QR Code impresso)
       if (token === 'estudio') {
-        // Apaga o token da URL instantaneamente
+        // Apaga o token da URL instantaneamente para não deixar rastro no histórico ou compartilhamento
         window.history.replaceState({}, document.title, window.location.pathname);
         return 'home';
       }
@@ -375,7 +375,7 @@ function AppAndroid() {
         <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
         <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
         <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
-        <li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos.</li>
+        <li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos..</li>
 
       </ul>
 
@@ -600,8 +600,10 @@ function AppIOS() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
+    // Garante que o link copiado esteja limpo, removendo qualquer parâmetro após o "?"
+    const cleanUrl = window.location.href.split('?')[0];
     const el = document.createElement('textarea');
-    el.value = window.location.href;
+    el.value = cleanUrl;
     document.body.appendChild(el);
     el.select();
     document.execCommand('copy');
