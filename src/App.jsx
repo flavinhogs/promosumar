@@ -405,7 +405,7 @@ function AppAndroid() {
       await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, created_at: serverTimestamp() });
       await setDoc(lockRef, { timestamp: Date.now() });
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
-      const msg = `Oi! Sou ${customerName}, ${participantNumber}º da promo. Validei meu cupom de ${prizeLabel}! Arte: ${selectedFlash.name}. Imagem: ${selectedFlash.src};
+      const msg = `Oi! Sou ${customerName}, ${participantNumber}º da promo. Validei meu cupom de ${prizeLabel}! Arte: ${selectedFlash.name}. Imagem: ${selectedFlash.src}`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
     } catch (e) { alert("Erro ao salvar."); }
