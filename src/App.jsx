@@ -140,9 +140,35 @@ const BackgroundDrift = () => (
 // ########################### INICIO DO CÓDIGO ANDROID ###############################
 // ####################################################################################
 function AppAndroid() {
+  // --- LÓGICA DE MASCARAMENTO DE URL (BLINDAGEM SÍNCRONA ANTES DE CARREGAR A TELA) ---
+  const checkInitialAccess = () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('id');
+      const isImmune = safeStorage.getItem('sumar_admin_immunity') === 'true';
+
+      // Se o link tiver o token correto (vindo do QR Code impresso)
+      if (token === 'estudio') {
+        safeSession.setItem('sumar_qr_validated', 'true');
+        // Apaga o token da URL instantaneamente
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return 'home';
+      }
+
+      // Se não tem token, verifica se ele já foi validado nesta aba ou se é o Admin
+      const isValidated = safeSession.getItem('sumar_qr_validated') === 'true';
+      if (!isValidated && !isImmune) {
+        return 'qr_required'; // Bloqueia imediatamente
+      }
+      return 'home'; // Permite se já validou antes
+    } catch (e) {
+      return 'home';
+    }
+  };
+
   const [user, setUser] = useState(null);
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const [view, setView] = useState('home'); 
+  const [view, setView] = useState(checkInitialAccess); // Inicia já com a tela certa
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [statusMsg, setStatusMsg] = useState('Iniciando protocolos...');
   const [prizeType, setPrizeType] = useState(null);
@@ -168,28 +194,6 @@ function AppAndroid() {
     const saved = safeStorage.getItem('sumar_timer');
     return saved !== null ? parseInt(saved, 10) : 600; 
   });
-
-  // --- LÓGICA DE MASCARAMENTO DE URL (BLOQUEIO DE COMPARTILHAMENTO) ---
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('id');
-    
-    // Se o link tiver o token correto (vindo do QR Code impresso)
-    if (token === 'estudio') {
-      safeSession.setItem('sumar_qr_validated', 'true');
-      // Apaga o token da URL instantaneamente para evitar que a pessoa copie e compartilhe
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-      // Se não tem token, verifica se ele já foi validado nesta sessão ou se é o Admin
-      const isValidated = safeSession.getItem('sumar_qr_validated') === 'true';
-      const isImmune = safeStorage.getItem('sumar_admin_immunity') === 'true';
-      
-      // Se copiou o link limpo (sem token) e enviou para alguém fora do bar, bloqueia
-      if (!isValidated && !isImmune) {
-        setView('qr_required');
-      }
-    }
-  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
