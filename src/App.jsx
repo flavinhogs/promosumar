@@ -207,7 +207,7 @@ const RegulationModal = ({ onClose }) => (
           <li>8.1. Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</li>
        </ul>
 
-        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
+        <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DA PRIVACIDADE E PROTEÇÃO DE DADOS</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>9.1. A campanha observa os princípios da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</li>
           <li>9.2. A participação na campanha não exige cadastro prévio, criação de conta ou fornecimento automático de dados pessoais para simples acesso à plataforma.</li>
