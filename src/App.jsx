@@ -177,16 +177,16 @@ const RegulationModal = ({ onClose }) => (
           <li>2.3. O sistema disponibiliza 20 (vinte) vagas, distribuídas da seguinte forma:<br/>–Da 1ª à 10ª validação confirmada: 100% de desconto;<br/>Da 11ª à 20ª validação confirmada: 50% de desconto.<br/>Os benefícios estão sujeitos aos limites, valores e condições previstos na Cláusula 3 deste regulamento.</li>
           <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
           <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
-          <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
-          <li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos.</li>
+          <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção.<br /> Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
+          <li>2.7. O sistema opera com uma trava de segurança temporal. <br />Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos.</li>
           <li>2.8. O sistema funciona exclusivamente de quinta a domingo, das 19h às 03h. Fora deste período, a plataforma permanecerá inativa.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-           <li>3.1. Tatuagem Grátis (1º ao 10º lugar)<br>Isenção do valor do procedimento, respeitado o limite máximo de R$ 200,00.</li>
-           <li>3.2. Desconto de 50% (11º ao 20º lugar)<br>Desconto aplicado sobre o valor de tabela da arte escolhida, limitado a R$ 100,00.<br>O valor mínimo de qualquer procedimento é de R$ 110,00 (referente a custos de material e biossegurança).</li>
-           <li>3.3. Limite de Valor da Promoção<br>A promoção contempla artes cujo valor total (tamanho + complexidade + região do corpo) seja de até R$ 200,00.<br>Caso a arte escolhida ultrapasse esse valor, o participante poderá realizar o procedimento mediante pagamento da diferença excedente.</li>
+           <li>3.1. Tatuagem Grátis (1º ao 10º lugar)<br />Isenção do valor do procedimento, respeitado o limite máximo de R$ 200,00.</li>
+           <li>3.2. Desconto de 50% (11º ao 20º lugar)<br />Desconto aplicado sobre o valor de tabela da arte escolhida, limitado a R$ 100,00.<br />O valor mínimo de qualquer procedimento é de R$ 110,00 (referente a custos de material e biossegurança).</li>
+           <li>3.3. Limite de Valor da Promoção<br />A promoção contempla artes cujo valor total (tamanho + complexidade + região do corpo) seja de até R$ 200,00.<br />Caso a arte escolhida ultrapasse esse valor, o participante poderá realizar o procedimento mediante pagamento da diferença excedente.</li>
            <li>3.4. Despesas relacionadas ao deslocamento, alimentação, aquisição de pomadas, medicamentos ou quaisquer cuidados pré e pós-procedimento são de responsabilidade exclusiva do participante.<br>O Estúdio não realiza reembolso ou fornecimento desses itens.</li>
         </ul>
 
@@ -194,15 +194,15 @@ const RegulationModal = ({ onClose }) => (
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li>
           <li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li>
-          <li>4.3. A promoção é válida exclusivamente para tatuagem nova (pele sem pigmentação prévia).<br>Não serão realizados procedimentos de cover-up ou reforma.<br>A viabilidade da região escolhida deverá ser previamente validada pelo Estúdio.</li>
-          <li>4.4. O procedimento deverá ser realizado em sessão única.<br>Caso não seja concluído por motivo relacionado ao participante, eventual nova sessão poderá gerar cobrança adicional de material.</li>
+          <li>4.3. A promoção é válida exclusivamente para tatuagem nova (pele sem pigmentação prévia).<br />Não serão realizados procedimentos de cover-up ou reforma.<br />A viabilidade da região escolhida deverá ser previamente validada pelo Estúdio.</li>
+          <li>4.4. O procedimento deverá ser realizado em sessão única.<br />Caso não seja concluído por motivo relacionado ao participante, eventual nova sessão poderá gerar cobrança adicional de material.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li>
-          <<li>5.2. Prazos:<br>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
-          <li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados). Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
+          <li>5.2. Prazos:<br>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br />A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
+          <li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados).<br>Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4>
