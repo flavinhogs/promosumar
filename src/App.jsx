@@ -187,7 +187,7 @@ const RegulationModal = ({ onClose }) => (
            <li>3.1. Tatuagem Grátis (1º ao 10º lugar)<br />Isenção do valor do procedimento, respeitado o limite máximo de R$ 200,00.</li>
            <li>3.2. Desconto de 50% (11º ao 20º lugar)<br />Desconto aplicado sobre o valor de tabela da arte escolhida, limitado a R$ 100,00.<br />O valor mínimo de qualquer procedimento é de R$ 110,00 (referente a custos de material e biossegurança).</li>
            <li>3.3. Limite de Valor da Promoção<br />A promoção contempla artes cujo valor total (tamanho + complexidade + região do corpo) seja de até R$ 200,00.<br />Caso a arte escolhida ultrapasse esse valor, o participante poderá realizar o procedimento mediante pagamento da diferença excedente.</li>
-           <li>3.4. Despesas relacionadas ao deslocamento, alimentação, aquisição de pomadas, medicamentos ou quaisquer cuidados pré e pós-procedimento são de responsabilidade exclusiva do participante.<br>O Estúdio não realiza reembolso ou fornecimento desses itens.</li>
+           <li>3.4. Despesas relacionadas ao deslocamento, alimentação, aquisição de pomadas, medicamentos ou quaisquer cuidados pré e pós-procedimento são de responsabilidade exclusiva do participante.<br/>O Estúdio não realiza reembolso ou fornecimento desses itens.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
@@ -201,8 +201,8 @@ const RegulationModal = ({ onClose }) => (
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li>
-          <li>5.2. Prazos:<br>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br />A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
-          <li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados).<br>Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
+          <li>5.2. Prazos:<br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br />A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
+          <li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados).<br/>Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>6. CANCELAMENTO E "NO-SHOW"</h4>
@@ -241,6 +241,7 @@ const RegulationModal = ({ onClose }) => (
           <li>10.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
           <li>10.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
             </ul>
+
 
         <div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>
           Sumar Estúdio<br/>Recife/PE
