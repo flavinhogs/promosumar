@@ -174,7 +174,7 @@ const RegulationModal = ({ onClose }) => (
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>2.1. A campanha ocorre exclusivamente via plataforma digital do Estúdio, sendo o acesso estritamente limitado à leitura do QR Code oficial presencialmente.</li>
           <li>2.2. A distribuição dos prêmios segue a ordem de chegada e conclusão do cadastro no sistema (ordem cronológica de validação).</li>
-          <li>2.3. O sistema disponibiliza um total de 20 (vinte) vagas, divididas da seguinte forma:<br/>As 10 (dez) primeiras validações confirmadas ganham: 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.</li>
+          <li>2.3. O sistema disponibiliza 20 (vinte) vagas, distribuídas da seguinte forma:<br/>– As 10 (dez) primeiras validações confirmadas recebem 100% de desconto (Tatuagem Grátis).<br/>Da 11ª à 20ª validação confirmada ganham: 50% de desconto.<br/>Os prêmios estão sujeitos às condições, limites de valor e regras previstas no Item 3 deste regulamento.</li>
           <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
           <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
           <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
@@ -184,24 +184,24 @@ const RegulationModal = ({ onClose }) => (
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-          <li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br/>Isenção total do valor do procedimento da tatuagem.</li>
-          <li>3.2. Desconto de 50% (11º ao 20º lugar):<br/>O desconto é aplicado sobre o valor de tabela da arte escolhida.<br/>Teto do Desconto: O desconto máximo concedido é de R$ 100,00 (cem reais).<br/>Valor Mínimo: O valor mínimo de qualquer procedimento (custo de material e biossegurança) é de R$ 110,00. Portanto, o valor a ser pago pelo cliente variará entre R$ 55,00 e R$ 100,00, dependendo da arte.</li>
-          <li>3.3. Regra de Valor Máximo (Aplicável a ambos os prêmios):<br/>A promoção cobre tatuagens cujo valor final (soma de tamanho + dificuldade + local) seja de até R$ 200,00.<br/>Caso a arte escolhida, somada ao local de aplicação, ultrapasse o valor de avaliação de R$ 200,00, o Estúdio reserva-se o direito de cobrar a diferença excedente do cliente.</li>
-          <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS: <br/> Independentemente do prêmio recebido, todas as despesas anteriores e posteriores à vinda do participante ao Estúdio, incluindo, mas não se limitando a: <br/>deslocamento (transporte), alimentação, aquisição de pomadas cicatrizantes, medicamentos ou quaisquer outros itens necessários para a assepsia e cuidados com a tatuagem, são de inteira e exclusiva responsabilidade do participante. <br/>O SUMAR ESTÚDIO não se responsabiliza pelo fornecimento desses itens ou pelo ressarcimento de valores gastos fora do procedimento artístico realizado em sessão.</li>
+           <li>3.1. Tatuagem Grátis (1º ao 10º lugar):<br> Isenção total do valor da tatuagem, respeitado o limite máximo de R$ 200,00 por procedimento.</li>
+           <li>3.2. Desconto de 50% (11º ao 20º lugar):<br>O desconto de 50% será aplicado sobre o valor da arte escolhida, limitado ao desconto mínimo de R$ 55,00 e máximo de R$ 100,00.</li>
+           <li>3.3. Limite de valor da promoção: <br>A campanha é válida exclusivamente para tatuagens cujo valor final seja de até R$ 200,00.<br>Valores superiores poderão ser complementados pelo cliente, mediante pagamento da diferença.</li>
+           <li>3.4. DOS CUSTOS ADICIONAIS E CUIDADOS:<br>Despesas como transporte, alimentação, pomadas cicatrizantes, medicamentos ou quaisquer outros cuidados pré e pós-procedimento são de responsabilidade exclusiva do participante.<br>O Sumar Estúdio não realiza reembolso de valores relacionados a esses itens.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>4. DAS ARTES E PROCEDIMENTO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>4.1. A promoção é válida exclusivamente para as artes (Flashs) disponíveis no catálogo da campanha.</li>
           <li>4.2. Alterações: Não serão permitidas alterações no desenho (mudança de traço, elementos, etc). As únicas adaptações permitidas referem-se ao tamanho e enquadramento anatômico, desde que respeitem o teto de valor (Item 3.3).</li>
-          <li>4.3. Restrições: <br/>- A promoção é válida apenas para pele limpa (tatuagem nova).<br/>- Não serão realizados procedimentos de Cover-up (cobertura) ou reforma de tatuagens antigas.<br/>- O cliente deve consultar o estúdio sobre a viabilidade da região do corpo desejada.</li>
-          <li>4.4. O procedimento deve ser realizado obrigatoriamente em uma única sessão. Caso o procedimento não seja concluído por motivos relacionados ao cliente (ex: baixa resistência à dor, mal-estar), o agendamento de uma nova data para término implicará na cobrança de taxa extra para cobrir custos de material (biossegurança).</li>
+          <li>4.3. A promoção é válida exclusivamente para tatuagens novas (pele limpa), não contemplando procedimentos de cobertura (cover-up) ou reforma de trabalhos anteriores.<br>A viabilidade da região do corpo escolhida deverá ser previamente avaliada pelo estúdio.</li>
+          <li>4.4. O procedimento deverá ser realizado em sessão única.<br>Caso seja necessária nova sessão por motivo relacionado ao cliente, poderá ser cobrada taxa adicional referente a material e biossegurança.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>5. DO AGENDAMENTO E VALIDAÇÃO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>5.1. Após a confirmação na tela, o ganhador tem o prazo de 24 horas para entrar em contato via WhatsApp e confirmar a validação do cupom.</li>
-          <li>5.2. Prazos:<br/>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br/>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
+          <<li>5.2. Prazos:<br>O agendamento da data deve ser feito em até 24 horas após o contato inicial.<br>A realização da tatuagem deve ocorrer dentro de 1 mês (30 dias) a contar da data de confirmação.</li>
           <li>5.3. Transferência de Titularidade: O ganhador deve informar, no momento do primeiro contato via WhatsApp, quem será a pessoa tatuada (nome completo e dados). Caso o ganhador não informe os dados ou decida alterar a pessoa beneficiada após a confirmação, o prêmio será cancelado e a vaga disponibilizada novamente na plataforma.</li>
         </ul>
 
