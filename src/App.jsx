@@ -209,10 +209,21 @@ const RegulationModal = ({ onClose }) => (
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-          <li>9.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li>
-          <li>9.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado junto ao estúdio terão direito ao prêmio.</li>
-          <li>9.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
-          <li>9.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
+          <li>9.1. A campanha observa os princípios da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</li>
+          <li>9.2. A participação na campanha não exige cadastro prévio, criação de conta ou fornecimento automático de dados pessoais para simples acesso à plataforma.</li>
+          <li>9.3. O sistema não realiza coleta automática de e-mails, telefones ou geração de banco de dados para fins de publicidade.</li>
+          <li>9.4. O contato com o Estúdio ocorre exclusivamente por iniciativa do participante, via WhatsApp, caso este deseje validar seu cupom premiado.</li>
+          <li>9.5. Os dados informados para fins de agendamento e validação do prêmio serão utilizados exclusivamente para a execução da campanha, não sendo compartilhados com terceiros nem utilizados para envio de comunicações promocionais futuras sem autorização expressa do participante.</li>
+          <li>9.6. O Estúdio preza pela confidencialidade, privacidade e segurança das informações eventualmente fornecidas.</li><
+
+        
+          <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>10. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
+        <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
+          <li>10.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li>
+          <li>10.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado junto ao estúdio terão direito ao prêmio.</li>
+          <li>10.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
+          <li>10.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
+          
         </ul>
 
         <div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>
