@@ -166,7 +166,7 @@ const RegulationModal = ({ onClose }) => (
         
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>1. DO PERÍODO E VIGÊNCIA</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-          <li>1.1. A campanha terá início em 26/02/2026 e encerramento previsto para 31/03/2026.</li>
+          <li>1.1. A campanha terá início em 10/02/2026 e encerramento previsto para 10/03/2026.</li>
           <li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li>
         </ul>
 
@@ -283,7 +283,8 @@ function AppAndroid() {
   const [lastConfirmedAt, setLastConfirmedAt] = useState(0);
   const [isLockLoaded, setIsLockLoaded] = useState(false);
 
-  const [isSafeDevice, setIsSafeDevice] = useState(() => safeStorage.getItem('sumar_admin_immunity') === 'true');
+  // A imunidade de administrador agora é temporária (safeSession)
+  const [isSafeDevice, setIsSafeDevice] = useState(() => safeSession.getItem('sumar_admin_immunity') === 'true');
   const [isBlocked, setIsBlocked] = useState(() => safeStorage.getItem('sumar_promo_blocked') === 'true');
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = safeStorage.getItem('sumar_timer');
@@ -307,7 +308,8 @@ function AppAndroid() {
     const qrToken = urlParams.get('qr');
     const accessToken = urlParams.get('access');
     
-    const isImmune = safeStorage.getItem('sumar_admin_immunity') === 'true';
+    // A imunidade de administrador agora é temporária (safeSession)
+    const isImmune = safeSession.getItem('sumar_admin_immunity') === 'true';
     const now = Date.now();
 
     // Se for o admin imune, passa direto e limpa a URL de qualquer token
@@ -540,8 +542,15 @@ function AppAndroid() {
 
   const grantAdminImmunity = () => {
     safeStorage.removeItem('sumar_promo_blocked'); safeStorage.removeItem('sumar_timer'); safeStorage.removeItem('sumar_startTime'); safeStorage.removeItem('sumar_already_accessed'); safeSession.removeItem('sumar_sessionActive');
-    safeStorage.setItem('sumar_admin_immunity', 'true'); setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
-    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA!"); setView('home');
+    
+    // Limpa registros antigos permanentes para evitar "imortalidade" após os testes
+    safeStorage.removeItem('sumar_admin_immunity'); 
+    
+    // Grava apenas na sessão temporária
+    safeSession.setItem('sumar_admin_immunity', 'true'); 
+    
+    setIsSafeDevice(true); setIsBlocked(false); setTimeLeft(600); 
+    alert("IMUNIDADE DE ADMINISTRADOR ATIVADA! (Sessão temporária)"); setView('home');
   };
 
   const confirmLead = async (id) => {
