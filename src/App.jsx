@@ -206,7 +206,7 @@ const RegulationModal = ({ onClose }) => (
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>8.1. Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</li>
-          <li>8.2. É proibida a participação de funcionários dos estabelecimentos parceiros. Cadastros identificados serão cancelados e a vaga repassada ao próximo participante..</li>
+          <li>8.2. É proibida a participação de funcionários dos estabelecimentos parceiros. Cadastros identificados serão cancelados e a vaga repassada ao próximo participante.</li>
        </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DA PRIVACIDADE E PROTEÇÃO DE DADOS</h4>
