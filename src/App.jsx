@@ -457,13 +457,13 @@ function AppAndroid() {
   
   // HIERARQUIA DE RENDERIZAÇÃO DE BLOQUEIOS IMEDIATOS
 
-  // 1. TRAVA DE HORÁRIO (Prioridade Máxima)
+  // 1. FORA DO ESTABELECIMENTO / SEM TOKEN (Corta o mal pela raiz)
+  if (view === 'qr_required') return <QRRequiredScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
+
+  // 2. TRAVA DE HORÁRIO (A regra suprema)
   if (checkIsOutsideSchedule() && !isSafeDevice && view !== 'admin') {
     return <ScheduleLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
   }
-
-  // 2. FORA DO ESTABELECIMENTO / SEM TOKEN
-  if (view === 'qr_required') return <QRRequiredScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
 
   // 3. SOBRECARGA DE SISTEMA (Trava de Leads)
   if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} onLog={() => logMetric('overload_lock')} />;
