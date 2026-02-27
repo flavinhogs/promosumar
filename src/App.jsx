@@ -164,6 +164,7 @@ const RegulationModal = ({ onClose }) => (
           <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
           <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
           <li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos..</li>
+          <li>2.8. O sistema funciona exclusivamente de quinta a domingo, das 19h às 03h. Fora deste período, a plataforma permanecerá inativa. <li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
@@ -205,6 +206,7 @@ const RegulationModal = ({ onClose }) => (
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>8.1. Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</li>
+          <li>8.2. É proibida a participação de funcionários dos estabelecimentos parceiros. Cadastros identificados serão cancelados e a vaga repassada ao próximo participante..</li>
        </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DA PRIVACIDADE E PROTEÇÃO DE DADOS</h4>
