@@ -205,7 +205,7 @@ const RegulationModal = ({ onClose }) => (
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>8. ISENÇÃO DOS LOCAIS DE DIVULGAÇÃO</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>8.1. Os estabelecimentos onde os QR Codes estão fixados são apenas pontos de divulgação passiva, não tendo qualquer responsabilidade sobre a promoção, entrega de prêmios ou suporte técnico.</li>
-        </ul>
+       </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>9. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
@@ -216,15 +216,14 @@ const RegulationModal = ({ onClose }) => (
           <li>9.5. Os dados informados para fins de agendamento e validação do prêmio serão utilizados exclusivamente para a execução da campanha, não sendo compartilhados com terceiros nem utilizados para envio de comunicações promocionais futuras sem autorização expressa do participante.</li>
           <li>9.6. O Estúdio preza pela confidencialidade, privacidade e segurança das informações eventualmente fornecidas.</li>
            </ul>
-        
+
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>10. DISPOSIÇÕES TÉCNICAS E GERAIS</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
           <li>10.1. Falhas Tecnológicas: O Estúdio não se responsabiliza por falhas na conexão de internet do participante, travamentos de dispositivos, falhas de bateria ou oscilações de rede que impeçam a conclusão do cadastro dentro do tempo limite ou o envio do formulário.</li>
           <li>10.2. Apenas participantes que chegarem à tela de "Sucesso" e possuírem o registro validado junto ao estúdio terão direito ao prêmio.</li>
           <li>10.3. O Estúdio reserva-se o direito de desclassificar qualquer participante que utilize meios robóticos, ilícitos ou que violem os termos de uso para obter vantagens na campanha.</li>
           <li>10.4. Os casos omissos neste regulamento serão resolvidos pela administração do Sumar Estúdio.</li>
-          
-        </ul>
+           </ul>
 
         <div style={{marginTop: '20px', fontSize: '11px', color: '#888', textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px'}}>
           Sumar Estúdio<br/>Recife/PE
