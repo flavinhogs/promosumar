@@ -166,7 +166,7 @@ const RegulationModal = ({ onClose }) => (
         
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>1. DO PERÍODO E VIGÊNCIA</h4>
         <ul style={{paddingLeft: '20px', margin: '5px 0'}}>
-          <li>1.1. A campanha terá início em 10/02/2026 e encerramento previsto para 10/03/2026.</li>
+          <li>1.1. A campanha terá início em 26/02/2026 e encerramento previsto para 31/03/2026.</li>
           <li>1.2. A ação poderá ser encerrada antecipadamente caso o limite total de 20 (vinte) cupons premiados seja atingido antes da data final.</li>
         </ul>
 
