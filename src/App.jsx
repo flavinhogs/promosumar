@@ -462,10 +462,14 @@ function AppAndroid() {
     return <ScheduleLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
   }
 
-  // 2. Outras travas e visualizações
-  if (isRestrictedBrowser && !isSafeDevice) return <AppIOS onLog={() => logMetric('restricted_browser')} />;
-  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} onLog={() => logMetric('overload_lock')} />;
+  // 2. FORA DO ESTABELECIMENTO / SEM TOKEN
   if (view === 'qr_required') return <QRRequiredScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} />;
+
+  // 3. SOBRECARGA DE SISTEMA (Trava de Leads)
+  if (isGlobalLocked && ['home', 'loading'].includes(view) && !isAdminUnlocked) return <LeadLockScreen onAdmin={() => setView('admin')} onReg={() => setShowRegulations(true)} regVisible={showRegulations} onRegClose={() => setShowRegulations(false)} onLog={() => logMetric('overload_lock')} />;
+
+  // 4. NAVEGADOR RESTRITO / IOS
+  if (isRestrictedBrowser && !isSafeDevice) return <AppIOS onLog={() => logMetric('restricted_browser')} />;
 
   const startConnection = () => {
     setView('loading');
