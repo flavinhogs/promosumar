@@ -163,8 +163,8 @@ const RegulationModal = ({ onClose }) => (
           <li>2.4. O sistema possui um cronômetro de segurança de 10 minutos. Caso o participante não conclua o processo dentro deste tempo, a vaga é liberada para outro usuário.</li>
           <li>2.5. O sistema só permite 1 participação por pessoa e irá bloquear qualquer tentativa de nova participação.</li>
           <li>2.6. O sistema esta projetado para cancelar a participação do candidato em caso de atualização de pagina, fechamento de aba e vencimento do tempo de produção. Cada participante terá uma chance única e exclusiva sem direito a novas tentativas.</li>
-          <li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos..</li>
-          <li>2.8. O sistema funciona exclusivamente de quinta a domingo, das 19h às 03h. Fora deste período, a plataforma permanecerá inativa. <li>
+          <li>2.7. O sistema opera com uma trava de segurança temporal. Após um lead gerado, o acesso pode ser suspenso temporariamente para novas entradas, sendo reestabelecido automaticamente para dar chance a outros grupos.</li>
+          <li>2.8. O sistema funciona exclusivamente de quinta a domingo, das 19h às 03h. Fora deste período, a plataforma permanecerá inativa.</li>
         </ul>
 
         <h4 style={{color: '#fff', margin: '15px 0 5px', fontSize: '13px'}}>3. DOS PRÊMIOS E VALORES</h4>
