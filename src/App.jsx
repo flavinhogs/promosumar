@@ -726,6 +726,7 @@ const ScheduleLockScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
         <h1 style={{ color: '#ff003c', fontWeight: '900', fontSize: '20px', margin: '0 0 10px 0', letterSpacing: '1px', textAlign: 'center' }}>SERVIÇO INDISPONÍVEL</h1>
         <p style={{ fontSize: '13px', color: '#f0f0f0', marginBottom: '10px', fontWeight: '500', textAlign: 'center' }}>Sinal interrompido ou indisponível no momento.</p>
         <p style={{ fontSize: '12px', color: '#aaa', lineHeight: '1.4', marginBottom: '20px', textAlign: 'center' }}>O acesso à rede é uma liberação da <strong style={{color: '#fff'}}>SUMAR</strong>.<br /><br />A conectividade só é permitida dentro de uma janela de tempo limitada, no período em que o estabelecimento estiver funcionando.</p>
+        <button onClick={() => window.open(`https://www.instagram.com/tattosumar/`, '_blank')} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button>
         <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
         <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar - Infraestrutura de Rede</p>
       </div>
@@ -749,6 +750,7 @@ const LeadLockScreen = ({ onAdmin, onReg, regVisible, onRegClose, onLog }) => {
           <div style={{ backgroundColor: 'rgba(255, 0, 60, 0.05)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 0, 60, 0.1)', width: '100%', boxSizing: 'border-box' }}>
             <p style={{ fontSize: '11px', color: '#ff003c', textAlign: 'center', margin: 0, fontWeight: '700' }}>Tente novamente em alguns minutos.</p>
           </div>
+          <button onClick={() => window.open(`https://www.instagram.com/tattosumar/`, '_blank')} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none', marginTop: '10px' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button>
           <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
           <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Gerenciamento de Tráfego</p>
         </div>
@@ -772,6 +774,7 @@ const QRRequiredScreen = ({ onAdmin, onReg, regVisible, onRegClose }) => (
            <p style={{ fontSize: '13px', color: '#fff', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>Como conectar?</p>
            <p style={{ fontSize: '12px', color: '#888', lineHeight: '1.4', textAlign: 'center' }}>Você precisa estar presencialmente no local e escanear o QR Code oficial para entrar na rede.</p>
         </div>
+        <button onClick={() => window.open(`https://www.instagram.com/tattosumar/`, '_blank')} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button>
         <button onClick={onReg} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '10px' }}>Ler regulamento completo</button>
         <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
       </div>
@@ -819,6 +822,7 @@ function AppIOS({ onLog }) {
           <button onClick={handleCopy} style={{ ...styles.btn, backgroundColor: copied ? '#00c853' : '#333', boxShadow: 'none' }}>
             {copied ? <><CheckSquare size={18} /> LINK COPIADO!</> : <><Copy size={18} /> COPIAR LINK</>}
           </button>
+          <button onClick={() => window.open(`https://www.instagram.com/tattosumar/`, '_blank')} style={{ ...styles.btn, backgroundColor: 'transparent', border: '1px solid #e1306c', color: '#e1306c', height: '48px', boxShadow: 'none', marginTop: '10px' }}><Instagram size={18} /> CONHECER O INSTAGRAM</button>
           <button onClick={() => setShowRegulations(true)} style={{background: 'none', border: 'none', color: '#666', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', padding: '5px', marginTop: '15px' }}>Ler regulamento completo</button>
           <p style={{ fontSize: '10px', color: '#444', marginTop: '25px', fontStyle: 'italic', textAlign: 'center' }}>Sumar Estúdio - Segurança de Dados Ativa</p>
         </div>
