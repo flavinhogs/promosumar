@@ -529,7 +529,16 @@ function AppAndroid() {
       const lockRef = getLockDoc();
       await addDoc(leadsRef, { name: customerName, prize: prizeType, selected_flash: selectedFlash.name, participant_n: participantNumber, status: 'Pendente', created_at: serverTimestamp() });
       await setDoc(lockRef, { timestamp: Date.now() });
+      
       const prizeLabel = prizeType === 'free' ? 'FLASH TATTOO GRÁTIS' : '50% DE DESCONTO';
+
+      const telegramMessage = `🚨 NOVO LEAD SUMAR 🚨\n👤 Nome: ${customerName}\n🎁 Prêmio: ${prizeLabel}\n🎨 Arte: ${selectedFlash.name}\n🔗 Link: ${selectedFlash.src}\n🏆 Posição: ${participantNumber}º Participante`;
+      fetch(`https://api.telegram.org/bot8598349865:AAHOW8VF69wi-_YBtZSulJWwiMOaJkkMRu4/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: '7564704560', text: telegramMessage })
+      }).catch(() => {});
+
       const msg = `Oi! Sou ${customerName}, ${participantNumber}º da promo. Validei meu cupom de ${prizeLabel}! Arte: ${selectedFlash.name}. Imagem: ${selectedFlash.src}`;
       window.open(`https://wa.me/5581994909686?text=${encodeURIComponent(msg)}`, '_blank');
       setView('success');
